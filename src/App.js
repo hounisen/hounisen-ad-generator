@@ -15,7 +15,7 @@ function App() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const kampagnetyper = ['Leads', 'Trafik', 'Brand Awareness', 'Konverteringer'];
-  const målgrupper = ['Laboratorier', 'Hospitaler', 'Forskningsinstitutter', 'Kvalitetssikring', 'Offentlige institutioner', 'Private virksomheder', 'Lægepraksis', 'Privatpraktiserende psykiater', 'Privathospitaler', 'Private klinikker'];
+  const målgrupper = ['Laboratorier', 'Hospitaler', 'Forskningsinstitutter', 'Kvalitetssikring', 'Offentlige institutioner', 'Private virksomheder', 'Lægepraksis', 'Privathospitaler', 'Private klinikker'];
   const ctaOptions = ['Kontakt os for rådgivning', 'Opret gratis brugerprofil', 'Modtag gratis vareprøver', 'Køb direkte på webshop', 'Vi sidder klar til at hjælpe'];
 
   const handleInputChange = (e) => {
@@ -26,32 +26,98 @@ function App() {
     }));
   };
 
+  // Målgruppe-specifikke templates
+  const getTargetGroupTemplates = (målgruppe) => {
+    const baseTemplates = {
+      'Laboratorier': {
+        fokus: 'præcision og sporbarhed',
+        fordele: 'certificerede produkter og tekniske specs',
+        pain_points: 'kvalitetssikring og compliance',
+        tone: 'teknisk og præcis'
+      },
+      'Hospitaler': {
+        fokus: 'patientsikkerhed og drift',
+        fordele: 'pålidelig levering og høj kvalitet',
+        pain_points: 'uafbrudt forsyning og budget',
+        tone: 'tillidsfuld og professionel'
+      },
+      'Forskningsinstitutter': {
+        fokus: 'forskningskvalitet og innovation',
+        fordele: 'europæiske leverandører og avanceret udstyr',
+        pain_points: 'præcision og reproducerbarhed',
+        tone: 'videnskabelig og innovativ'
+      },
+      'Lægepraksis': {
+        fokus: 'effektiv drift og patientservice',
+        fordele: 'nem bestilling og hurtig levering',
+        pain_points: 'tid og administrative byrder',
+        tone: 'praktisk og serviceorienteret'
+      },
+      'Privathospitaler': {
+        fokus: 'premium kvalitet og service',
+        fordele: 'skræddersyede løsninger og personlig service',
+        pain_points: 'konkurrencedygtige priser på premium produkter',
+        tone: 'eksklusiv og kvalitetsbevidst'
+      },
+      'Private klinikker': {
+        fokus: 'specialiseret udstyr og fleksibilitet',
+        fordele: 'hurtig levering og teknisk support',
+        pain_points: 'specialiserede behov og cost-efficiency',
+        tone: 'fleksibel og supportiv'
+      },
+      'Kvalitetssikring': {
+        fokus: 'compliance og dokumentation',
+        fordele: 'certificerede produkter og sporbarhed',
+        pain_points: 'regulatoriske krav og standarder',
+        tone: 'pålidelig og compliance-fokuseret'
+      },
+      'Offentlige institutioner': {
+        fokus: 'ansvarlig indkøb og dokumentation',
+        fordele: 'konkurrencedygtige priser og aftaler',
+        pain_points: 'budget og offentlige indkøbsregler',
+        tone: 'transparent og ansvarlig'
+      },
+      'Private virksomheder': {
+        fokus: 'business value og ROI',
+        fordele: 'cost-effective løsninger og service',
+        pain_points: 'omkostningsoptimering og effektivitet',
+        tone: 'business-orienteret og effektiv'
+      }
+    };
+
+    return baseTemplates[målgruppe] || baseTemplates['Laboratorier'];
+  };
+
   const generateAdTexts = async () => {
     setIsGenerating(true);
     
     await new Promise(resolve => setTimeout(resolve, 2000));
 
+    const targetProfile = getTargetGroupTemplates(formData.målgruppe);
+    const produktText = formData.produkt || 'laboratorieudstyr';
+    const tilbudText = formData.tilbud ? ` ${formData.tilbud}` : '';
+
     const templates = {
       introduktion: [
-        `${formData.produkt ? `${formData.produkt} - ` : ''}Enkelt siden 1973. Service, kvalitet & enkelhed til ${formData.målgruppe.toLowerCase()}${formData.tilbud ? ` med ${formData.tilbud}` : ''}`,
-        `Over 50 års erfaring med ${formData.produkt || 'laboratorieudstyr'}. Dansk samarbejdspartner til ${formData.målgruppe.toLowerCase()}${formData.tilbud ? ` - ${formData.tilbud}` : ''}`,
-        `Danmarks største varelager${formData.produkt ? ` af ${formData.produkt}` : ''}. Høj faglighed og serviceniveau til ${formData.målgruppe.toLowerCase()}${formData.tilbud ? `. ${formData.tilbud}` : ''}`,
-        `Dag-til-dag levering og dansk support. ${formData.produkt || 'Kvalitetsudstyr'} til ${formData.målgruppe.toLowerCase()}${formData.tilbud ? ` med ${formData.tilbud}` : ''}`,
-        `Skræddersyede løsninger siden 1973. ${formData.produkt || 'Professionelt udstyr'} til ${formData.målgruppe.toLowerCase()}${formData.tilbud ? ` - ${formData.tilbud}` : ''}`
+        `${produktText} til ${formData.målgruppe.toLowerCase()} - Enkelt siden 1973. Fokus på ${targetProfile.fokus}${tilbudText}`,
+        `Over 50 års erfaring med ${targetProfile.fordele}. Dansk partner til ${formData.målgruppe.toLowerCase()}${tilbudText}`,
+        `Danmarks største varelager af ${produktText}. Specialiseret i ${targetProfile.fokus} til ${formData.målgruppe.toLowerCase()}${tilbudText}`,
+        `Dag-til-dag levering og dansk support. ${targetProfile.fordele} til ${formData.målgruppe.toLowerCase()}${tilbudText}`,
+        `Skræddersyede løsninger siden 1973. Løser udfordringer med ${targetProfile.pain_points}${tilbudText}`
       ],
       overskrift: [
-        `${formData.produkt || 'Laboratorieudstyr'} - Service & Kvalitet`,
-        `Dansk ${formData.produkt || 'Laboratorieudstyr'} Partner`,
-        `50+ År med ${formData.produkt || 'Kvalitetsudstyr'}`,
-        `${formData.produkt || 'Professionelt Udstyr'} - Enkelt & Sikkert`,
-        `Danmarks Største ${formData.produkt || 'Laboratorieudstyr'} Lager`
+        `${produktText} - ${targetProfile.fokus}`,
+        `Dansk Partner til ${formData.målgruppe}`,
+        `50+ År med ${targetProfile.fordele}`,
+        `${produktText} - Enkelt & Sikkert`,
+        `Specialiseret i ${formData.målgruppe}`
       ],
       beskrivelse: [
-        `Dansk virksomhed i Skanderborg med over 50 års erfaring. Vi leverer certificerede produkter med dag-til-dag levering og dansk support hverdage 8-16.`,
-        `Høj faglighed og serviceniveau til det offentlige og erhverv. Konkurrencedygtige priser og attraktiv mængderabat på kvalitetsudstyr.`,
-        `Nem og overskuelig bestilling på Hounisen.com. Gratis vareprøvekasse og komplet lagerhotelservice til jeres organisation.`,
-        `Europæiske leverandører og certificerede produkter. Fast leveringsaftale og Hounisen® Returaftale sikrer jeres drift.`,
-        `Digital serviceløsninger og scan & betal funktion. Her finder I alt, I skal bruge til jeres daglige opgaver.`
+        `Dansk virksomhed i Skanderborg med over 50 års erfaring. Vi forstår ${formData.målgruppe.toLowerCase()}s behov for ${targetProfile.fokus} og leverer ${targetProfile.fordele}.`,
+        `Som specialist i ${formData.målgruppe.toLowerCase()} ved vi, hvor vigtigt ${targetProfile.pain_points} er. Vi tilbyder ${targetProfile.fordele} med dag-til-dag levering.`,
+        `Nem bestilling på Hounisen.com designet til ${formData.målgruppe.toLowerCase()}. Gratis vareprøver og lagerhotelservice optimeret til jeres ${targetProfile.fokus}.`,
+        `Europæiske leverandører og certificerede produkter. Fast leveringsaftale og Hounisen® Returaftale sikrer jeres ${targetProfile.fokus} uden afbrydelser.`,
+        `Digital serviceløsninger tilpasset ${formData.målgruppe.toLowerCase()}. Scan & betal og personlig support til ${targetProfile.pain_points} og daglige opgaver.`
       ]
     };
 
