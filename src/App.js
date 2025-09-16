@@ -16,7 +16,7 @@ function App() {
 
   const kampagnetyper = ['Leads', 'Trafik', 'Brand Awareness', 'Konverteringer'];
   const målgrupper = ['Laboratorier', 'Hospitaler', 'Forskningsinstitutter', 'Offentlige institutioner', 'Lægepraksis', 'Privathospitaler', 'Private psykiatriske klinikker', 'Private klinikker'];
-  const ctaOptions = ['Kontakt os for rådgivning', 'Opret gratis brugerprofil', 'Modtag gratis vareprøver', 'Køb direkte på webshop', 'Vi sidder klar til at hjælpe'];
+  const ctaOptions = ['Få gratis demo', 'Kontakt os for rådgivning', 'Opret gratis brugerprofil', 'Modtag gratis vareprøver', 'Køb direkte på webshop', 'Vi sidder klar til at hjælpe'];
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -31,57 +31,51 @@ function App() {
     const baseTemplates = {
       'Laboratorier': {
         fokus: 'præcision og sporbarhed',
-        fordele: 'certificerede produkter og tekniske specs',
-        pain_points: 'kvalitetssikring og compliance',
+        fordele: 'certificerede produkter',
+        pain_points: 'kvalitetssikring',
         tone: 'teknisk og præcis'
       },
       'Hospitaler': {
-        fokus: 'patientsikkerhed og drift',
-        fordele: 'pålidelig levering og høj kvalitet',
-        pain_points: 'uafbrudt forsyning og budget',
-        tone: 'tillidsfuld og professionel'
+        fokus: 'patientsikkerhed',
+        fordele: 'pålidelig levering',
+        pain_points: 'uafbrudt forsyning',
+        tone: 'tillidsfuld'
       },
       'Forskningsinstitutter': {
-        fokus: 'forskningskvalitet og innovation',
-        fordele: 'europæiske leverandører og avanceret udstyr',
-        pain_points: 'præcision og reproducerbarhed',
-        tone: 'videnskabelig og innovativ'
+        fokus: 'forskningskvalitet',
+        fordele: 'avanceret udstyr',
+        pain_points: 'præcision',
+        tone: 'videnskabelig'
       },
       'Lægepraksis': {
-        fokus: 'effektiv drift og patientservice',
-        fordele: 'nem bestilling og hurtig levering',
-        pain_points: 'tid og administrative byrder',
-        tone: 'praktisk og serviceorienteret'
+        fokus: 'effektiv drift',
+        fordele: 'hurtig levering',
+        pain_points: 'tid og service',
+        tone: 'serviceorienteret'
       },
       'Privathospitaler': {
-        fokus: 'premium kvalitet og service',
-        fordele: 'skræddersyede løsninger og personlig service',
-        pain_points: 'konkurrencedygtige priser på premium produkter',
-        tone: 'eksklusiv og kvalitetsbevidst'
+        fokus: 'premium kvalitet',
+        fordele: 'personlig service',
+        pain_points: 'kvalitet og pris',
+        tone: 'eksklusiv'
+      },
+      'Private psykiatriske klinikker': {
+        fokus: 'specialiseret udstyr',
+        fordele: 'teknisk support',
+        pain_points: 'specialbehov',
+        tone: 'specialiseret'
       },
       'Private klinikker': {
-        fokus: 'specialiseret udstyr og fleksibilitet',
-        fordele: 'hurtig levering og teknisk support',
-        pain_points: 'specialiserede behov og cost-efficiency',
-        tone: 'fleksibel og supportiv'
-      },
-      'Kvalitetssikring': {
-        fokus: 'compliance og dokumentation',
-        fordele: 'certificerede produkter og sporbarhed',
-        pain_points: 'regulatoriske krav og standarder',
-        tone: 'pålidelig og compliance-fokuseret'
+        fokus: 'fleksibilitet',
+        fordele: 'hurtig service',
+        pain_points: 'cost-efficiency',
+        tone: 'fleksibel'
       },
       'Offentlige institutioner': {
-        fokus: 'ansvarlig indkøb og dokumentation',
-        fordele: 'konkurrencedygtige priser og aftaler',
-        pain_points: 'budget og offentlige indkøbsregler',
-        tone: 'transparent og ansvarlig'
-      },
-      'Private virksomheder': {
-        fokus: 'business value og ROI',
-        fordele: 'cost-effective løsninger og service',
-        pain_points: 'omkostningsoptimering og effektivitet',
-        tone: 'business-orienteret og effektiv'
+        fokus: 'ansvarlig indkøb',
+        fordele: 'konkurrencedygtige priser',
+        pain_points: 'budget og regler',
+        tone: 'ansvarlig'
       }
     };
 
@@ -94,38 +88,50 @@ function App() {
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     const targetProfile = getTargetGroupTemplates(formData.målgruppe);
-    const produktText = formData.produkt || 'laboratorieudstyr';
-    const tilbudText = formData.tilbud ? ` ${formData.tilbud}` : '';
+    const produktText = formData.produkt || 'udstyr';
+    const tilbudText = formData.tilbud ? ` - ${formData.tilbud}` : '';
 
+    // Kortere templates der overholder LinkedIn grænser
     const templates = {
       introduktion: [
-        `${produktText} til ${formData.målgruppe.toLowerCase()} - Enkelt siden 1973. Fokus på ${targetProfile.fokus}${tilbudText}`,
-        `Over 50 års erfaring med ${targetProfile.fordele}. Dansk partner til ${formData.målgruppe.toLowerCase()}${tilbudText}`,
-        `Danmarks største varelager af ${produktText}. Specialiseret i ${targetProfile.fokus} til ${formData.målgruppe.toLowerCase()}${tilbudText}`,
-        `Dag-til-dag levering og dansk support. ${targetProfile.fordele} til ${formData.målgruppe.toLowerCase()}${tilbudText}`,
-        `Skræddersyede løsninger siden 1973. Løser udfordringer med ${targetProfile.pain_points}${tilbudText}`
+        `${produktText} til ${formData.målgruppe.toLowerCase()} - ${targetProfile.fokus}${tilbudText}`,
+        `Dansk ${produktText} til ${formData.målgruppe.toLowerCase()} - 50+ års erfaring${tilbudText}`,
+        `${targetProfile.fordele} til ${formData.målgruppe.toLowerCase()} siden 1973${tilbudText}`,
+        `${produktText} - ${targetProfile.fokus} og hurtig levering${tilbudText}`,
+        `Specialist i ${formData.målgruppe.toLowerCase()} - ${targetProfile.fordele}${tilbudText}`
       ],
       overskrift: [
-        `${produktText} - ${targetProfile.fokus}`,
-        `Dansk Partner til ${formData.målgruppe}`,
-        `50+ År med ${targetProfile.fordele}`,
+        `${produktText} til ${formData.målgruppe}`,
+        `Dansk ${produktText} Partner`,
+        `${targetProfile.fokus} siden 1973`,
         `${produktText} - Enkelt & Sikkert`,
-        `Specialiseret i ${formData.målgruppe}`
+        `Specialist i ${formData.målgruppe}`
       ],
       beskrivelse: [
-        `Dansk virksomhed i Skanderborg med over 50 års erfaring. Vi forstår ${formData.målgruppe.toLowerCase()}s behov for ${targetProfile.fokus} og leverer ${targetProfile.fordele}.`,
-        `Som specialist i ${formData.målgruppe.toLowerCase()} ved vi, hvor vigtigt ${targetProfile.pain_points} er. Vi tilbyder ${targetProfile.fordele} med dag-til-dag levering.`,
-        `Nem bestilling på Hounisen.com designet til ${formData.målgruppe.toLowerCase()}. Gratis vareprøver og lagerhotelservice optimeret til jeres ${targetProfile.fokus}.`,
-        `Europæiske leverandører og certificerede produkter. Fast leveringsaftale og Hounisen® Returaftale sikrer jeres ${targetProfile.fokus} uden afbrydelser.`,
-        `Digital serviceløsninger tilpasset ${formData.målgruppe.toLowerCase()}. Scan & betal og personlig support til ${targetProfile.pain_points} og daglige opgaver.`
+        `Dansk virksomhed med 50+ års erfaring. ${targetProfile.fordele} til ${formData.målgruppe.toLowerCase()} med dag-til-dag levering og personlig service.`,
+        `Specialist i ${targetProfile.fokus}. Vi forstår ${formData.målgruppe.toLowerCase()}s behov og tilbyder ${targetProfile.fordele} til konkurrencedygtige priser.`,
+        `Nem bestilling på Hounisen.com. Gratis vareprøver og lagerhotelservice optimeret til ${targetProfile.pain_points} i ${formData.målgruppe.toLowerCase()}.`,
+        `Certificerede produkter og fast leveringsaftale. Vi sikrer jeres ${targetProfile.fokus} med pålidelig service og teknisk support.`,
+        `Digital serviceløsninger til ${formData.målgruppe.toLowerCase()}. Personlig rådgivning og ${targetProfile.fordele} når I har brug for det.`
       ]
     };
 
     const ads = [];
     for (let i = 0; i < formData.antal_varianter; i++) {
-      const introduktion = templates.introduktion[i] || templates.introduktion[i % templates.introduktion.length];
-      const overskrift = templates.overskrift[i] || templates.overskrift[i % templates.overskrift.length];
-      const beskrivelse = templates.beskrivelse[i] || templates.beskrivelse[i % templates.beskrivelse.length];
+      let introduktion = templates.introduktion[i] || templates.introduktion[i % templates.introduktion.length];
+      let overskrift = templates.overskrift[i] || templates.overskrift[i % templates.overskrift.length];
+      let beskrivelse = templates.beskrivelse[i] || templates.beskrivelse[i % templates.beskrivelse.length];
+      
+      // Trim hvis for lange
+      if (introduktion.length > 150) {
+        introduktion = introduktion.substring(0, 147) + '...';
+      }
+      if (overskrift.length > 100) {
+        overskrift = overskrift.substring(0, 97) + '...';
+      }
+      if (beskrivelse.length > 600) {
+        beskrivelse = beskrivelse.substring(0, 597) + '...';
+      }
       
       ads.push({
         id: i + 1,
