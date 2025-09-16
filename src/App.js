@@ -26,60 +26,109 @@ function App() {
     }));
   };
 
-  // Målgruppe-specifikke templates
-  const getTargetGroupTemplates = (målgruppe) => {
-    const baseTemplates = {
+  // Intelligent produkthåndtering
+  const getProductContext = (input, målgruppe) => {
+    if (!input) {
+      return {
+        kort: 'laboratorieudstyr',
+        generisk: 'kvalitetsudstyr',
+        kategori: 'udstyr'
+      };
+    }
+
+    const lower = input.toLowerCase();
+    
+    // Detect product categories
+    if (lower.includes('ekg') || lower.includes('eeg') || lower.includes('elektro')) {
+      return {
+        kort: 'EKG-udstyr',
+        generisk: 'medicinsk udstyr',
+        kategori: 'diagnostisk udstyr'
+      };
+    }
+    if (lower.includes('mikroskop')) {
+      return {
+        kort: 'mikroskoper',
+        generisk: 'optisk udstyr', 
+        kategori: 'analyseudstyr'
+      };
+    }
+    if (lower.includes('centrifuge')) {
+      return {
+        kort: 'centrifuger',
+        generisk: 'laboratorieudstyr',
+        kategori: 'separationsudstyr'
+      };
+    }
+    if (lower.includes('glas') || lower.includes('bægerglas')) {
+      return {
+        kort: 'laboratorieglas',
+        generisk: 'glasudstyr',
+        kategori: 'forbrugsartikler'
+      };
+    }
+    
+    // Fallback: use first 2-3 meaningful words
+    const meaningful = input
+      .replace(/model\s+[A-Za-z0-9-]+/gi, '')
+      .replace(/fra\s+[A-Z]+/gi, '')
+      .split(' ')
+      .slice(0, 3)
+      .join(' ');
+    
+    return {
+      kort: meaningful || 'specialudstyr',
+      generisk: 'professionelt udstyr',
+      kategori: 'laboratorieudstyr'
+    };
+  };
+
+  // Målgruppe-specifikke profiler (forkortet)
+  const getTargetGroupProfile = (målgruppe) => {
+    const profiles = {
       'Laboratorier': {
-        fokus: 'præcision og sporbarhed',
-        fordele: 'certificerede produkter',
-        pain_points: 'kvalitetssikring',
-        tone: 'teknisk og præcis'
+        fokus: 'præcision og kvalitet',
+        værdi: 'certificerede produkter',
+        behov: 'pålidelige analyser'
       },
       'Hospitaler': {
         fokus: 'patientsikkerhed',
-        fordele: 'pålidelig levering',
-        pain_points: 'uafbrudt forsyning',
-        tone: 'tillidsfuld'
+        værdi: 'pålidelig drift',
+        behov: 'kontinuerlig forsyning'
       },
       'Forskningsinstitutter': {
         fokus: 'forskningskvalitet',
-        fordele: 'avanceret udstyr',
-        pain_points: 'præcision',
-        tone: 'videnskabelig'
+        værdi: 'præcist udstyr',
+        behov: 'reproducerbare resultater'
       },
       'Lægepraksis': {
         fokus: 'effektiv drift',
-        fordele: 'hurtig levering',
-        pain_points: 'tid og service',
-        tone: 'serviceorienteret'
+        værdi: 'nem betjening',
+        behov: 'hurtig service'
       },
       'Privathospitaler': {
         fokus: 'premium kvalitet',
-        fordele: 'personlig service',
-        pain_points: 'kvalitet og pris',
-        tone: 'eksklusiv'
+        værdi: 'skræddersyede løsninger',
+        behov: 'eksklusiv service'
       },
       'Private psykiatriske klinikker': {
         fokus: 'specialiseret udstyr',
-        fordele: 'teknisk support',
-        pain_points: 'specialbehov',
-        tone: 'specialiseret'
+        værdi: 'faglig ekspertise',
+        behov: 'specialløsninger'
       },
       'Private klinikker': {
-        fokus: 'fleksibilitet',
-        fordele: 'hurtig service',
-        pain_points: 'cost-efficiency',
-        tone: 'fleksibel'
+        fokus: 'fleksible løsninger',
+        værdi: 'personlig service',
+        behov: 'tilpassede produkter'
       },
       'Offentlige institutioner': {
-        fokus: 'ansvarlig indkøb',
-        fordele: 'konkurrencedygtige priser',
-        pain_points: 'budget og regler',
-        tone: 'ansvarlig'
+        fokus: 'ansvarlige indkøb',
+        værdi: 'gennemsigtige priser',
+        behov: 'dokumenterede kvalitet'
       }
     };
 
-    return baseTemplates[målgruppe] || baseTemplates['Laboratorier'];
+    return profiles[målgruppe] || profiles['Laboratorier'];
   };
 
   const generateAdTexts = async () => {
@@ -87,32 +136,32 @@ function App() {
     
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    const targetProfile = getTargetGroupTemplates(formData.målgruppe);
-    const produktText = formData.produkt || 'udstyr';
+    const productContext = getProductContext(formData.produkt, formData.målgruppe);
+    const targetProfile = getTargetGroupProfile(formData.målgruppe);
     const tilbudText = formData.tilbud ? ` - ${formData.tilbud}` : '';
 
-    // Kortere templates der overholder LinkedIn grænser
+    // Sammenhængende templates med Hounisen tone of voice
     const templates = {
       introduktion: [
-        `${produktText} til ${formData.målgruppe.toLowerCase()} - ${targetProfile.fokus}${tilbudText}`,
-        `Dansk ${produktText} til ${formData.målgruppe.toLowerCase()} - 50+ års erfaring${tilbudText}`,
-        `${targetProfile.fordele} til ${formData.målgruppe.toLowerCase()} siden 1973${tilbudText}`,
-        `${produktText} - ${targetProfile.fokus} og hurtig levering${tilbudText}`,
-        `Specialist i ${formData.målgruppe.toLowerCase()} - ${targetProfile.fordele}${tilbudText}`
+        `${productContext.kort} til ${formData.målgruppe.toLowerCase()} - Vi sikrer ${targetProfile.fokus}${tilbudText}`,
+        `Dansk leverandør af ${productContext.generisk} siden 1973. Specialiseret i ${formData.målgruppe.toLowerCase()}${tilbudText}`,
+        `${targetProfile.værdi} til ${formData.målgruppe.toLowerCase()}. Professionel rådgivning og hurtig levering${tilbudText}`,
+        `Hounisen leverer ${productContext.kategori} med fokus på ${targetProfile.behov}${tilbudText}`,
+        `50+ års erfaring med ${productContext.generisk}. Vi forstår ${formData.målgruppe.toLowerCase()}s behov${tilbudText}`
       ],
       overskrift: [
-        `${produktText} til ${formData.målgruppe}`,
-        `Dansk ${produktText} Partner`,
-        `${targetProfile.fokus} siden 1973`,
-        `${produktText} - Enkelt & Sikkert`,
-        `Specialist i ${formData.målgruppe}`
+        `${productContext.kort} - ${targetProfile.fokus}`,
+        `Dansk ${productContext.kategori} siden 1973`,
+        `${targetProfile.værdi} til ${formData.målgruppe}`,
+        `${productContext.kort} - Service & Kvalitet`,
+        `Specialister i ${formData.målgruppe}`
       ],
       beskrivelse: [
-        `Dansk virksomhed med 50+ års erfaring. ${targetProfile.fordele} til ${formData.målgruppe.toLowerCase()} med dag-til-dag levering og personlig service.`,
-        `Specialist i ${targetProfile.fokus}. Vi forstår ${formData.målgruppe.toLowerCase()}s behov og tilbyder ${targetProfile.fordele} til konkurrencedygtige priser.`,
-        `Nem bestilling på Hounisen.com. Gratis vareprøver og lagerhotelservice optimeret til ${targetProfile.pain_points} i ${formData.målgruppe.toLowerCase()}.`,
-        `Certificerede produkter og fast leveringsaftale. Vi sikrer jeres ${targetProfile.fokus} med pålidelig service og teknisk support.`,
-        `Digital serviceløsninger til ${formData.målgruppe.toLowerCase()}. Personlig rådgivning og ${targetProfile.fordele} når I har brug for det.`
+        `Vi er Danmarks førende leverandør af ${productContext.generisk} med over 50 års erfaring. Vores ${targetProfile.værdi} sikrer ${targetProfile.behov} for ${formData.målgruppe.toLowerCase()}.`,
+        `Hos Hounisen forstår vi ${formData.målgruppe.toLowerCase()}s krav til ${targetProfile.fokus}. Vi leverer ${productContext.generisk} med personlig service og teknisk support.`,
+        `Gratis rådgivning og vareprøver på ${productContext.kategori}. Fast leveringsaftale og attraktive priser til ${formData.målgruppe.toLowerCase()}.`,
+        `Dansk virksomhed i Skanderborg siden 1973. Vi kombinerer ${targetProfile.værdi} med konkurrencedygtige priser og pålidelig levering.`,
+        `Scan & betal løsning og digital bestilling gør det nemt at handle ${productContext.generisk}. Personlig support når du har brug for det.`
       ]
     };
 
@@ -122,22 +171,25 @@ function App() {
       let overskrift = templates.overskrift[i] || templates.overskrift[i % templates.overskrift.length];
       let beskrivelse = templates.beskrivelse[i] || templates.beskrivelse[i % templates.beskrivelse.length];
       
-      // Trim hvis for lange
+      // Trim hvis for lange (med intelligent afslutning)
       if (introduktion.length > 150) {
-        introduktion = introduktion.substring(0, 147) + '...';
+        const lastSpace = introduktion.lastIndexOf(' ', 147);
+        introduktion = introduktion.substring(0, lastSpace) + '...';
       }
       if (overskrift.length > 100) {
-        overskrift = overskrift.substring(0, 97) + '...';
+        const lastSpace = overskrift.lastIndexOf(' ', 97);
+        overskrift = overskrift.substring(0, lastSpace) + '...';
       }
       if (beskrivelse.length > 600) {
-        beskrivelse = beskrivelse.substring(0, 597) + '...';
+        const lastSpace = beskrivelse.lastIndexOf(' ', 597);
+        beskrivelse = beskrivelse.substring(0, lastSpace) + '...';
       }
       
       ads.push({
         id: i + 1,
-        introduktion: introduktion,
-        overskrift: overskrift,
-        beskrivelse: beskrivelse,
+        introduktion,
+        overskrift,
+        beskrivelse,
         introduktionLength: introduktion.length,
         overskriftLength: overskrift.length,
         beskrivelseLength: beskrivelse.length
@@ -209,13 +261,13 @@ function App() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Produkt/Service</label>
+                <label className="block text-sm font-medium mb-2">Produkt/Service (inspiration)</label>
                 <input
                   type="text"
                   name="produkt"
                   value={formData.produkt}
                   onChange={handleInputChange}
-                  placeholder="f.eks. Laboratorieglas, Sikkerhedsudstyr"
+                  placeholder="f.eks. EKG-apparat, mikroskoper, centrifuger"
                   className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
@@ -241,7 +293,7 @@ function App() {
                   name="tilbud"
                   value={formData.tilbud}
                   onChange={handleInputChange}
-                  placeholder="f.eks. gratis vareprøver, mængderabat"
+                  placeholder="f.eks. gratis demo, 20% rabat"
                   className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
