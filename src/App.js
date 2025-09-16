@@ -26,33 +26,67 @@ function App() {
     }));
   };
 
-  // LinkedIn best practice analyzer og optimizer
-  const optimizeForLinkedIn = (input, tone) => {
+  // Smart tekstprocessering og LinkedIn optimizer
+  const parseAndOptimize = (input, tone) => {
+    // Fjern tekst i parenteser og irrelevant info
+    let cleanedInput = input
+      .replace(/\([^)]*\)/g, '') // Fjern alt i parenteser
+      .replace(/\s+/g, ' ') // Rens mellemrum
+      .trim();
+
+    // Stopord der ikke skal bruges direkte
+    const stopWords = ['honorar', 'skal ikke indgå', 'mulige budskaber', 'De privatpraktiserende'];
+    
+    // Fjern stopord
+    stopWords.forEach(stopWord => {
+      cleanedInput = cleanedInput.replace(new RegExp(stopWord, 'gi'), '');
+    });
+
+    // Intelligente substitutioner
+    cleanedInput = cleanedInput
+      .replace(/psykiatere/gi, 'psykiatere')
+      .replace(/EKG/gi, 'EKG-undersøgelser')
+      .replace(/kan nu få/gi, '')
+      .replace(/for at tage/gi, 'ved')
+      .trim();
+
+    // Extraher kerneemnet
+    let coreSubject = 'laboratorieudstyr';
+    if (cleanedInput.toLowerCase().includes('ekg')) {
+      coreSubject = 'EKG-udstyr';
+    } else if (cleanedInput.toLowerCase().includes('psykiat')) {
+      coreSubject = 'udstyr til psykiatriske klinikker';
+    } else if (cleanedInput.toLowerCase().includes('mikroskop')) {
+      coreSubject = 'mikroskoper';
+    }
+
     const baseTemplates = {
       hooks: [
         'Vidste du at',
         'Forestil dig hvis',
         'Hvad nu hvis',
-        'Det her ændrede alt:',
-        'Stop med at gøre dette:'
+        'Det er vigtigt at',
+        'Mange overser dette:'
       ],
       questions: [
-        'Kender du følelsen af',
-        'Har du nogensinde spekuleret over',
-        'Hvad er det første du tænker på når',
-        'Hvor mange gange har du oplevet',
-        'Hvad hvis jeg fortalte dig at'
+        'Bruger du det rigtige',
+        'Har du overvejet',
+        'Kender du fordelene ved',
+        'Ved du hvorfor',
+        'Har du brug for'
       ],
       ctas: [
-        'Kontakt os for at lære mere',
-        'Se hvordan vi kan hjælpe dig',
-        'Book en gratis konsultation',
-        'Få din gratis guide',
-        'Læs mere på vores hjemmeside'
+        'Kontakt os for rådgivning',
+        'Se vores løsninger',
+        'Book en konsultation',
+        'Få professionel vejledning',
+        'Lær mere om mulighederne'
       ]
     };
 
     return {
+      cleanedInput,
+      coreSubject,
       hook: baseTemplates.hooks[Math.floor(Math.random() * baseTemplates.hooks.length)],
       question: baseTemplates.questions[Math.floor(Math.random() * baseTemplates.questions.length)],
       cta: baseTemplates.ctas[Math.floor(Math.random() * baseTemplates.ctas.length)]
@@ -71,7 +105,7 @@ function App() {
     }
 
     const content = formData.input_text.trim();
-    const elements = optimizeForLinkedIn(content, formData.tone);
+    const parsed = parseAndOptimize(content, formData.tone);
 
     // Hounisen brand context
     const brandContext = {
@@ -82,35 +116,35 @@ function App() {
       location: 'Dansk virksomhed i Skanderborg'
     };
 
-    // Intelligente templates baseret på input
+    // Intelligente templates baseret på parsed input
     const templates = {
       introduktion: [
-        `${elements.question} ${content}? ${brandContext.heritage} har lært os ${brandContext.values}.`,
-        `${elements.hook} ${content}. Hos ${brandContext.company} sikrer vi at du får de rigtige løsninger.`,
-        `${content} - det ved vi alt om. Som ${brandContext.location} leverer vi ${brandContext.benefits}.`,
-        `Stop med at bekymre dig om ${content}. Vi har ${brandContext.heritage} og kan hjælpe dig.`,
-        `${content}? Vi forstår udfordringen. ${brandContext.company} tilbyder pålidelige løsninger siden 1973.`
+        `${parsed.question} ${parsed.coreSubject}? Med ${brandContext.heritage} hjælper vi dig med at træffe de rigtige valg.`,
+        `${parsed.hook} ${parsed.coreSubject} kan gøre stor forskel for din praksis. Lad os hjælpe dig med den bedste løsning.`,
+        `Som specialist i ${parsed.coreSubject} kender vi udfordringerne. ${brandContext.company} har løsningen med ${brandContext.values}.`,
+        `${parsed.coreSubject} kræver ekspertise. ${brandContext.location} med ${brandContext.heritage} sikrer kvalitet og service.`,
+        `Få mest muligt ud af ${parsed.coreSubject}. Vi tilbyder professionel rådgivning og ${brandContext.benefits}.`
       ],
       overskrift: [
-        `${content} - Vi har løsningen`,
-        `Ekspert i ${content} siden 1973`,
-        `${content}: Service & Kvalitet`,
-        `Pålidelige løsninger til ${content}`,
-        `${brandContext.company} - Din partner til ${content}`
+        `${parsed.coreSubject} - Ekspert siden 1973`,
+        `Professionel ${parsed.coreSubject} løsning`,
+        `${parsed.coreSubject}: Service & Kvalitet`,
+        `Specialister i ${parsed.coreSubject}`,
+        `${brandContext.company} - ${parsed.coreSubject}`
       ],
       beskrivelse: [
-        `${brandContext.values} til alle dine behov inden for ${content}.`,
+        `${brandContext.values} til ${parsed.coreSubject}.`,
         `Professionel rådgivning og ${brandContext.benefits}.`,
-        `${brandContext.company} - din danske samarbejdspartner.`,
+        `${parsed.cta} - vi sidder klar.`,
         `Gratis konsultation og skræddersyede løsninger.`,
-        `${elements.cta} - vi sidder klar til at hjælpe.`
+        `${brandContext.company} - din danske partner.`
       ],
       alt_text: [
-        `Professionelt udstyr fra ${brandContext.company} til ${content}`,
-        `Kvalitetsprodukter og service siden 1973`,
-        `${brandContext.location} - specialiseret i ${content}`,
-        `Dansk support og hurtig levering af udstyr`,
-        `${brandContext.company} produkter til professionelt brug`
+        `${brandContext.company} ${parsed.coreSubject} til professionelt brug`,
+        `Kvalitets ${parsed.coreSubject} fra dansk leverandør`,
+        `${parsed.coreSubject} med professionel service og support`,
+        `${brandContext.location} - specialiseret i ${parsed.coreSubject}`,
+        `Certificeret ${parsed.coreSubject} til sundhedssektoren`
       ]
     };
 
