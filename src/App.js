@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Download, RefreshCw, Lightbulb } from 'lucide-react';
+import { Copy, Download, RefreshCw, Lightbulb, AlertCircle } from 'lucide-react';
 
 function App() {
   const [formData, setFormData] = useState({
@@ -10,13 +10,28 @@ function App() {
 
   const [generatedAds, setGeneratedAds] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [qualityScores, setQualityScores] = useState([]);
 
   const tones = [
-    { value: 'Professional', label: '💼 Professional', desc: 'Formel og tillidsfuld' },
-    { value: 'Friendly', label: '😊 Friendly', desc: 'Varm og tilgængelig' },
-    { value: 'Confident', label: '💪 Confident', desc: 'Stærk og overbevisende' },
-    { value: 'Educational', label: '🎓 Educational', desc: 'Pædagogisk og informativ' }
+    { value: 'Professional', label: '💼 Professionel', desc: 'Formel og tillidsfuld' },
+    { value: 'Friendly', label: '😊 Venlig', desc: 'Varm og tilgængelig' },
+    { value: 'Confident', label: '💪 Selvsikker', desc: 'Stærk og overbevisende' },
+    { value: 'Educational', label: '🎓 Pædagogisk', desc: 'Informativ og vejledende' }
   ];
+
+  // Kvalitetskontrol system
+  const bannedWords = new Set([
+    'revolutionerende', 'banebrydende', 'markedsledende', 'bedst i klassen', 
+    'cutting-edge', 'state-of-the-art', 'unik', 'enestående', 'fantastisk',
+    'utrolig', 'ekstraordinær', 'verdensklasse', 'premium', 'luksuriøs'
+  ]);
+
+  const benefitVerbs = [
+    'spar', 'reducer', 'øg', 'sikr', 'lever', 'forbedr', 'optimer',
+    'automatiser', 'strømlin', 'accelerer', 'boost', 'skaler'
+  ];
+
+  const hounisenRequired = ['dansk', 'siden 1973', 'certificeret', 'support', 'kvalitet'];
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -26,77 +41,163 @@ function App() {
     }));
   };
 
-  // Smart tekstprocessering og LinkedIn optimizer
-  const parseAndOptimize = (input, tone) => {
-    // Fjern tekst i parenteser og irrelevant info
+  // Sproglig kvalitetskontrol
+  const calculateQualityScore = (text) => {
+    // Specificitets-scoring
+    const hasNumber = /\b\d+(\.\d+)?%?\b/.test(text);
+    const hasBenefitVerb = benefitVerbs.some(v => 
+      new RegExp(`\\b${v}[a-zA-ZæøåÆØÅ]*\\b`, "i").test(text)
+    );
+    const specificity = (hasNumber ? 0.6 : 0) + (hasBenefitVerb ? 0.4 : 0);
+
+    // Sætningslængde (dansk optimeret)
+    const sentences = text.split(/(?<=[.!?])\s+/).filter(Boolean);
+    const words = text.trim().split(/\s+/).length;
+    const avgSentenceLength = words / Math.max(1, sentences.length);
+    const brevity = avgSentenceLength <= 15 ? 1 : Math.max(0, 1 - (avgSentenceLength - 15) / 10);
+
+    // Bannede ord check
+    const lowerText = text.toLowerCase();
+    const hasBannedWords = Array.from(bannedWords).some(word => lowerText.includes(word));
+    const bannedPenalty = hasBannedWords ? 0.3 : 1.0;
+
+    // Aktiv vs passiv stemme (dansk heuristik)
+    const passiveMarkers = ['bliver', 'er blevet', 'blev', 'var', 'blev leveret af'];
+    const hasPassive = passiveMarkers.some(marker => lowerText.includes(marker));
+    const activeBonus = hasPassive ? 0.7 : 1.0;
+
+    const totalScore = (specificity * 0.3 + brevity * 0.3 + bannedPenalty * 0.2 + activeBonus * 0.2);
+    
+    return {
+      total: Math.min(1, totalScore),
+      specificity,
+      brevity,
+      bannedWords: hasBannedWords,
+      activeVoice: !hasPassive,
+      avgSentenceLength
+    };
+  };
+
+  // Verbedret tekstprocessering med vinkler
+  const parseAndOptimizeWithAngles = (input, tone, angle) => {
+    // Rens input
     let cleanedInput = input
-      .replace(/\([^)]*\)/g, '') // Fjern alt i parenteser
-      .replace(/\s+/g, ' ') // Rens mellemrum
+      .replace(/\([^)]*\)/g, '')
+      .replace(/\s+/g, ' ')
       .trim();
 
-    // Stopord der ikke skal bruges direkte
-    const stopWords = ['honorar', 'skal ikke indgå', 'mulige budskaber', 'De privatpraktiserende'];
-    
-    // Fjern stopord
+    const stopWords = ['honorar', 'skal ikke indgå', 'mulige budskaber'];
     stopWords.forEach(stopWord => {
       cleanedInput = cleanedInput.replace(new RegExp(stopWord, 'gi'), '');
     });
 
-    // Intelligente substitutioner
-    cleanedInput = cleanedInput
-      .replace(/psykiatere/gi, 'psykiatere')
-      .replace(/EKG/gi, 'EKG-undersøgelser')
-      .replace(/kan nu få/gi, '')
-      .replace(/for at tage/gi, 'ved')
-      .trim();
-
-    // Extraher kerneemnet
+    // Intelligent emneekstraktion
     let coreSubject = 'laboratorieudstyr';
-    if (cleanedInput.toLowerCase().includes('ekg')) {
-      coreSubject = 'EKG-udstyr';
-    } else if (cleanedInput.toLowerCase().includes('psykiat')) {
-      coreSubject = 'udstyr til psykiatriske klinikker';
-    } else if (cleanedInput.toLowerCase().includes('mikroskop')) {
-      coreSubject = 'mikroskoper';
-    }
-
-    const baseTemplates = {
-      hooks: [
-        'Vidste du at',
-        'Forestil dig hvis',
-        'Hvad nu hvis',
-        'Det er vigtigt at',
-        'Mange overser dette:'
-      ],
-      questions: [
-        'Bruger du det rigtige',
-        'Har du overvejet',
-        'Kender du fordelene ved',
-        'Ved du hvorfor',
-        'Har du brug for'
-      ],
-      ctas: [
-        'Kontakt os for rådgivning',
-        'Se vores løsninger',
-        'Book en konsultation',
-        'Få professionel vejledning',
-        'Lær mere om mulighederne'
-      ]
+    let subjectVariations = {
+      singular: 'laboratorieudstyr',
+      definite: 'det rigtige udstyr',
+      context: 'laboratorieområdet',
+      benefit: 'pålidelige analyser'
     };
 
+    if (cleanedInput.toLowerCase().includes('ekg')) {
+      coreSubject = 'EKG-udstyr';
+      subjectVariations = {
+        singular: 'EKG-udstyr',
+        definite: 'præcist EKG-udstyr',
+        context: 'EKG-diagnostik',
+        benefit: 'sikre diagnoser'
+      };
+    } else if (cleanedInput.toLowerCase().includes('mikroskop')) {
+      coreSubject = 'mikroskoper';
+      subjectVariations = {
+        singular: 'mikroskoper',
+        definite: 'kvalitetsmikroskoper',
+        context: 'mikroskopi',
+        benefit: 'skarpe billeder'
+      };
+    }
+
+    // Vinkel-baserede startere
+    const angleTemplates = {
+      'Pain': {
+        starters: [
+          `Træt af forsinkede leverancer af ${subjectVariations.singular}?`,
+          `Stop med at bekymre dig om ${subjectVariations.context}.`,
+          `Frustreret over manglende support til ${subjectVariations.singular}?`
+        ],
+        benefits: [
+          `Vi løser dine udfordringer med ${subjectVariations.benefit}.`,
+          `Dansk support sikrer hurtig hjælp når du har brug for det.`,
+          `50+ års erfaring garanterer pålidelige løsninger.`
+        ]
+      },
+      'Outcome': {
+        starters: [
+          `Få ${subjectVariations.benefit} med certificeret ${subjectVariations.singular}.`,
+          `Øg din præcision med dansk ${subjectVariations.singular}.`,
+          `Sikr optimal ${subjectVariations.context} med proven kvalitet.`
+        ],
+        benefits: [
+          `Resultater du kan stole på siden 1973.`,
+          `Dag-til-dag levering når du har brug for det.`,
+          `Hounisen garanterer din succes.`
+        ]
+      },
+      'Proof': {
+        starters: [
+          `50+ års tillid fra danske ${subjectVariations.context} professionelle.`,
+          `Over 1000 kunder vælger Hounisens ${subjectVariations.singular}.`,
+          `Siden 1973 har vi leveret ${subjectVariations.benefit} til erhvervet.`
+        ],
+        benefits: [
+          `Certificerede produkter du kan stole på.`,
+          `Danmarks største varelager sikrer tilgængelighed.`,
+          `Dokumenteret kvalitet gennem fem årtier.`
+        ]
+      },
+      'Objection': {
+        starters: [
+          `"For dyrt" er ikke længere et problem med vores ${subjectVariations.singular}.`,
+          `"Svært at bestille" hører fortiden til med Hounisen.`,
+          `"Langsom levering" er ikke et issue med dag-til-dag service.`
+        ],
+        benefits: [
+          `Konkurrencedygtige priser på certificeret kvalitet.`,
+          `Nem bestilling og personlig rådgivning.`,
+          `Hurtig levering og dansk support inkluderet.`
+        ]
+      },
+      'Urgency': {
+        starters: [
+          `Kun 15 konsultationer tilbage i september.`,
+          `Sidste chance for 2024 leveringsaftaler.`,
+          `Begrænsede lagre på populære ${subjectVariations.singular}.`
+        ],
+        benefits: [
+          `Sikr din plads til personlig rådgivning.`,
+          `Book din leveringsaftale før årets udgang.`,
+          `Reservér dit ${subjectVariations.singular} i dag.`
+        ]
+      }
+    };
+
+    const template = angleTemplates[angle] || angleTemplates['Outcome'];
+    
     return {
       cleanedInput,
       coreSubject,
-      hook: baseTemplates.hooks[Math.floor(Math.random() * baseTemplates.hooks.length)],
-      question: baseTemplates.questions[Math.floor(Math.random() * baseTemplates.questions.length)],
-      cta: baseTemplates.ctas[Math.floor(Math.random() * baseTemplates.ctas.length)]
+      subjectVariations,
+      starter: template.starters[Math.floor(Math.random() * template.starters.length)],
+      benefit: template.benefits[Math.floor(Math.random() * template.benefits.length)],
+      angle
     };
   };
 
   const generateAdTexts = async () => {
     setIsGenerating(true);
     
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 2500));
 
     if (!formData.input_text.trim()) {
       setGeneratedAds([]);
@@ -104,101 +205,81 @@ function App() {
       return;
     }
 
-    const content = formData.input_text.trim();
-    const parsed = parseAndOptimize(content, formData.tone);
-
-    // Hounisen brand context
     const brandContext = {
       company: 'Hounisen',
-      heritage: 'Over 50 års erfaring siden 1973',
+      heritage: '50+ års erfaring siden 1973',
       values: 'Service, kvalitet og enkelhed',
-      benefits: 'Dag-til-dag levering, dansk support, certificerede produkter',
-      location: 'Dansk virksomhed i Skanderborg'
+      benefits: 'dag-til-dag levering, dansk support, certificerede produkter',
+      location: 'dansk virksomhed i Skanderborg'
     };
 
-    // Intelligente templates baseret på parsed input
-    const templates = {
-      introduktion: [
-        `${parsed.question} ${parsed.coreSubject}? Med ${brandContext.heritage} hjælper vi dig med at træffe de rigtige valg.`,
-        `${parsed.hook} ${parsed.coreSubject} kan gøre stor forskel for din praksis. Lad os hjælpe dig med den bedste løsning.`,
-        `Som specialist i ${parsed.coreSubject} kender vi udfordringerne. ${brandContext.company} har løsningen med ${brandContext.values}.`,
-        `${parsed.coreSubject} kræver ekspertise. ${brandContext.location} med ${brandContext.heritage} sikrer kvalitet og service.`,
-        `Få mest muligt ud af ${parsed.coreSubject}. Vi tilbyder professionel rådgivning og ${brandContext.benefits}.`
-      ],
-      overskrift: [
-        `${parsed.coreSubject} - Ekspert siden 1973`,
-        `Professionel ${parsed.coreSubject} løsning`,
-        `${parsed.coreSubject}: Service & Kvalitet`,
-        `Specialister i ${parsed.coreSubject}`,
-        `${brandContext.company} - ${parsed.coreSubject}`
-      ],
-      beskrivelse: [
-        `${brandContext.values} til ${parsed.coreSubject}.`,
-        `Professionel rådgivning og ${brandContext.benefits}.`,
-        `${parsed.cta} - vi sidder klar.`,
-        `Gratis konsultation og skræddersyede løsninger.`,
-        `${brandContext.company} - din danske partner.`
-      ],
-      alt_text: [
-        `${brandContext.company} ${parsed.coreSubject} til professionelt brug`,
-        `Kvalitets ${parsed.coreSubject} fra dansk leverandør`,
-        `${parsed.coreSubject} med professionel service og support`,
-        `${brandContext.location} - specialiseret i ${parsed.coreSubject}`,
-        `Certificeret ${parsed.coreSubject} til sundhedssektoren`
-      ]
-    };
-
+    // Definerede vinkler for variation
+    const angles = ['Pain', 'Outcome', 'Proof', 'Objection', 'Urgency'];
     const ads = [];
+    const scores = [];
+
     for (let i = 0; i < formData.antal_varianter; i++) {
-      let introduktion = templates.introduktion[i] || templates.introduktion[i % templates.introduktion.length];
-      let overskrift = templates.overskrift[i] || templates.overskrift[i % templates.overskrift.length];
-      let beskrivelse = templates.beskrivelse[i] || templates.beskrivelse[i % templates.beskrivelse.length];
-      let alt_text = templates.alt_text[i] || templates.alt_text[i % templates.alt_text.length];
+      const angle = angles[i] || angles[i % angles.length];
+      const parsed = parseAndOptimizeWithAngles(formData.input_text, formData.tone, angle);
+
+      // Skab naturlige templates baseret på vinkel
+      let introduktion = `${parsed.starter} ${parsed.benefit}`;
       
-      // Apply tone adjustments
-      if (formData.tone === 'Friendly') {
-        introduktion = introduktion.replace(/Vi har|vi sikrer|Vi forstår/, match => 
-          match === 'Vi har' ? 'Vi har' : 
-          match === 'vi sikrer' ? 'vi sørger for' : 'Vi kender'
-        );
-      } else if (formData.tone === 'Confident') {
-        introduktion = introduktion.replace(/kan hjælpe|tilbyder/, match =>
-          match === 'kan hjælpe' ? 'løser' : 'leverer'
-        );
-      }
-      
-      // Optimize for LinkedIn character limits
+      const overskrift = [
+        `${parsed.subjectVariations.singular} - Dansk kvalitet`,
+        `Pålidelig ${parsed.subjectVariations.context} siden 1973`,
+        `${brandContext.company}: ${parsed.subjectVariations.singular}`,
+        `Certificeret ${parsed.subjectVariations.singular}`,
+        `Eksperter i ${parsed.subjectVariations.context}`
+      ][i] || `${parsed.subjectVariations.singular} - Dansk kvalitet`;
+
+      const beskrivelse = [
+        `${brandContext.values} inden for ${parsed.subjectVariations.context}.`,
+        `Gratis rådgivning og ${brandContext.benefits}.`,
+        `Kontakt os for professionel vejledning.`,
+        `Skræddersyede løsninger til dine behov.`,
+        `${brandContext.company} - din danske partner.`
+      ][i] || `${brandContext.values} inden for ${parsed.subjectVariations.context}.`;
+
+      const alt_text = `${brandContext.company} ${parsed.subjectVariations.singular} til professionelt brug`;
+
+      // Optimér længder
       if (introduktion.length > 150) {
         const lastSpace = introduktion.lastIndexOf(' ', 147);
         introduktion = introduktion.substring(0, lastSpace) + '...';
       }
-      if (overskrift.length > 70) {
-        const lastSpace = overskrift.lastIndexOf(' ', 67);
-        overskrift = overskrift.substring(0, lastSpace) + '...';
-      }
-      if (beskrivelse.length > 200) {
-        const lastSpace = beskrivelse.lastIndexOf(' ', 197);
-        beskrivelse = beskrivelse.substring(0, lastSpace) + '...';
-      }
-      if (alt_text.length > 125) {
-        const lastSpace = alt_text.lastIndexOf(' ', 122);
-        alt_text = alt_text.substring(0, lastSpace) + '...';
-      }
-      
+
+      // Beregn kvalitetsscore
+      const fullText = `${introduktion} ${overskrift} ${beskrivelse}`;
+      const qualityScore = calculateQualityScore(fullText);
+
       ads.push({
         id: i + 1,
         introduktion,
-        overskrift,
-        beskrivelse,
-        alt_text,
+        overskrift: overskrift.length > 70 ? overskrift.substring(0, 67) + '...' : overskrift,
+        beskrivelse: beskrivelse.length > 200 ? beskrivelse.substring(0, 197) + '...' : beskrivelse,
+        alt_text: alt_text.length > 125 ? alt_text.substring(0, 122) + '...' : alt_text,
+        angle: angle,
         introduktionLength: introduktion.length,
-        overskriftLength: overskrift.length,
-        beskrivelseLength: beskrivelse.length,
-        altTextLength: alt_text.length
+        overskriftLength: overskrift.length > 70 ? 70 : overskrift.length,
+        beskrivelseLength: beskrivelse.length > 200 ? 200 : beskrivelse.length,
+        altTextLength: alt_text.length > 125 ? 125 : alt_text.length
       });
+
+      scores.push(qualityScore);
     }
 
-    setGeneratedAds(ads);
+    // Sortér efter kvalitet
+    const sortedIndices = scores
+      .map((score, index) => ({ score: score.total, index }))
+      .sort((a, b) => b.score - a.score)
+      .map(item => item.index);
+
+    const sortedAds = sortedIndices.map(i => ads[i]);
+    const sortedScores = sortedIndices.map(i => scores[i]);
+
+    setGeneratedAds(sortedAds);
+    setQualityScores(sortedScores);
     setIsGenerating(false);
   };
 
@@ -207,15 +288,17 @@ function App() {
   };
 
   const exportToCSV = () => {
-    const headers = ['Variant', 'Introduktion', 'Overskrift', 'Beskrivelse', 'Alt-tekst'];
+    const headers = ['Variant', 'Vinkel', 'Introduktion', 'Overskrift', 'Beskrivelse', 'Alt-tekst', 'Kvalitetsscore'];
     const csvContent = [
       headers.join(','),
-      ...generatedAds.map(ad => [
+      ...generatedAds.map((ad, idx) => [
         `Variant ${ad.id}`,
+        ad.angle,
         `"${ad.introduktion}"`,
         `"${ad.overskrift}"`,
         `"${ad.beskrivelse}"`,
-        `"${ad.alt_text}"`
+        `"${ad.alt_text}"`,
+        qualityScores[idx] ? qualityScores[idx].total.toFixed(2) : ''
       ].join(','))
     ].join('\n');
 
@@ -230,6 +313,12 @@ function App() {
     window.URL.revokeObjectURL(url);
   };
 
+  const getQualityColor = (score) => {
+    if (score >= 0.8) return 'text-green-600 bg-green-50';
+    if (score >= 0.6) return 'text-yellow-600 bg-yellow-50';
+    return 'text-red-600 bg-red-50';
+  };
+
   const selectedTone = tones.find(t => t.value === formData.tone);
 
   return (
@@ -237,7 +326,7 @@ function App() {
       <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white">
           <h1 className="text-3xl font-bold mb-2">Hounisen</h1>
-          <p className="text-blue-100">Intelligent LinkedIn Annonce Generator</p>
+          <p className="text-blue-100">Intelligent LinkedIn Annonce Generator med Kvalitetskontrol</p>
         </div>
 
         <div className="flex flex-col lg:flex-row">
@@ -252,7 +341,7 @@ function App() {
                   name="input_text"
                   value={formData.input_text}
                   onChange={handleInputChange}
-                  placeholder="f.eks. Hvorfor det er vigtigt at vælge det rigtige laboratorieudstyr til præcise analyser"
+                  placeholder="f.eks. Vigtigheden af præcist EKG-udstyr i psykiatrisk praksis"
                   className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none h-32"
                   rows={6}
                 />
@@ -292,7 +381,6 @@ function App() {
                 >
                   <option value={3}>3 varianter</option>
                   <option value={5}>5 varianter</option>
-                  <option value={10}>10 varianter</option>
                 </select>
               </div>
 
@@ -300,13 +388,24 @@ function App() {
                 <div className="flex items-start space-x-2">
                   <Lightbulb className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                   <div className="text-sm text-blue-800">
-                    <p className="font-medium mb-1">Tips til bedre annoncer:</p>
+                    <p className="font-medium mb-1">Automatiske Vinkler:</p>
                     <ul className="text-xs space-y-1">
-                      <li>• Stil spørgsmål der engagerer</li>
-                      <li>• Fokuser på kundens udfordring</li>
-                      <li>• Inkluder konkrete fordele</li>
-                      <li>• Brug handlingsopfordringer</li>
+                      <li>• Problem-fokuseret (Pain)</li>
+                      <li>• Resultat-fokuseret (Outcome)</li>
+                      <li>• Dokumentation (Proof)</li>
+                      <li>• Indvending-afkræfter (Objection)</li>
+                      <li>• Tidsbegrænset (Urgency)</li>
                     </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 p-3 rounded-lg">
+                <div className="flex items-start space-x-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div className="text-xs text-amber-800">
+                    <p className="font-medium mb-1">Bannede Ord:</p>
+                    <p>revolutionerende, banebrydende, markedsledende, unik, fantastisk</p>
                   </div>
                 </div>
               </div>
@@ -319,7 +418,7 @@ function App() {
                 {isGenerating ? (
                   <RefreshCw className="animate-spin mr-2 w-5 h-5" />
                 ) : null}
-                {isGenerating ? 'Genererer LinkedIn Annoncer...' : 'Generer LinkedIn Annoncer'}
+                {isGenerating ? 'Genererer Skarpe LinkedIn Annoncer...' : 'Generer Skarpe LinkedIn Annoncer'}
               </button>
             </div>
           </div>
@@ -327,7 +426,7 @@ function App() {
           {/* Results Panel */}
           <div className="lg:w-2/3 p-6">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold">Optimerede LinkedIn Annoncer</h2>
+              <h2 className="text-xl font-semibold">Kvalitetskontrollerede Annoncer</h2>
               {generatedAds.length > 0 && (
                 <button
                   onClick={exportToCSV}
@@ -341,14 +440,23 @@ function App() {
 
             {generatedAds.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
-                <p>Skriv dit annonce-indhold ovenfor og klik "Generer" for at få optimerede LinkedIn annoncer</p>
-                <p className="text-sm mt-2">Alle annoncer følger automatisk Hounisen's tone of voice og LinkedIn best practices</p>
+                <p>Skriv dit annonce-indhold ovenfor og få kvalitetskontrollerede LinkedIn annoncer</p>
+                <p className="text-sm mt-2">Alle annoncer bliver automatisk scoret på sprog, specificitet og klarhed</p>
               </div>
             ) : (
               <div className="space-y-6">
-                {generatedAds.map((ad) => (
+                {generatedAds.map((ad, idx) => (
                   <div key={ad.id} className="bg-white border rounded-xl p-6 shadow-sm">
-                    <h3 className="text-lg font-semibold mb-4 text-blue-600">Variant {ad.id}</h3>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-semibold text-blue-600">
+                        Variant {ad.id} - {ad.angle}
+                      </h3>
+                      {qualityScores[idx] && (
+                        <div className={`px-3 py-1 rounded-full text-sm font-medium ${getQualityColor(qualityScores[idx].total)}`}>
+                          Kvalitet: {(qualityScores[idx].total * 100).toFixed(0)}%
+                        </div>
+                      )}
+                    </div>
                     
                     <div className="space-y-4">
                       {/* Introduktionstekst */}
@@ -444,6 +552,19 @@ function App() {
                           </button>
                         </div>
                       </div>
+
+                      {/* Kvalitets-detaljer */}
+                      {qualityScores[idx] && (
+                        <div className="bg-gray-50 p-3 rounded-lg mt-4">
+                          <h4 className="text-sm font-medium text-gray-700 mb-2">Kvalitetsanalyse:</h4>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>Specificitet: {(qualityScores[idx].specificity * 100).toFixed(0)}%</div>
+                            <div>Klarhed: {(qualityScores[idx].brevity * 100).toFixed(0)}%</div>
+                            <div>Aktiv stemme: {qualityScores[idx].activeVoice ? 'Ja' : 'Nej'}</div>
+                            <div>Bannede ord: {qualityScores[idx].bannedWords ? 'Fundet' : 'Ingen'}</div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -454,16 +575,16 @@ function App() {
 
         {/* Guidelines Footer */}
         <div className="bg-gray-50 p-6 border-t">
-          <h3 className="font-semibold mb-3">Automatisk Integration af Hounisen Brand & LinkedIn Best Practices</h3>
+          <h3 className="font-semibold mb-3">Automatisk Kvalitetskontrol og Hounisen Brand Integration</h3>
           <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-700">
             <div>
-              <strong>Brand Integration:</strong> Over 50 års erfaring, dansk support, service & kvalitet
+              <strong>Sprogkvalitet:</strong> Korte sætninger, aktiv stemme, konkrete fordele, ingen corporate speak
             </div>
             <div>
-              <strong>LinkedIn Optimering:</strong> Korrekte tegngrænser, hooks, spørgsmål, CTA's
+              <strong>Variation:</strong> 5 forskellige vinkler - Pain, Outcome, Proof, Objection, Urgency
             </div>
             <div>
-              <strong>Tone of Voice:</strong> Professionel, serviceorienteret, troværdig og pædagogisk
+              <strong>Brand:</strong> Automatisk integration af 50+ års erfaring, dansk kvalitet, certificering
             </div>
           </div>
         </div>
