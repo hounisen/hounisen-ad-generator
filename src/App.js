@@ -15,7 +15,7 @@ function App() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const kampagnetyper = ['Leads', 'Trafik', 'Brand Awareness', 'Konverteringer'];
-  const målgrupper = ['Laboratorier', 'Hospitaler', 'Forskningsinstitutter', 'Kvalitetssikring', 'Offentlige institutioner', 'Private virksomheder', 'Lægepraksis', 'Privathospitaler', 'Private klinikker'];
+  const målgrupper = ['Laboratorier', 'Hospitaler', 'Forskningsinstitutter', 'Kvalitetssikring', 'Offentlige institutioner', 'Private virksomheder', 'Lægepraksis', 'Privathospitaler', 'Private psykiatriske klinikker', 'Private klinikker'];
   const ctaOptions = ['Kontakt os for rådgivning', 'Opret gratis brugerprofil', 'Modtag gratis vareprøver', 'Køb direkte på webshop', 'Vi sidder klar til at hjælpe'];
 
   const handleInputChange = (e) => {
