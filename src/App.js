@@ -1,596 +1,940 @@
 import React, { useState } from 'react';
-import { Copy, Download, RefreshCw, Lightbulb, AlertCircle } from 'lucide-react';
+import { Upload, TrendingUp, TrendingDown, AlertCircle, CheckCircle, FileText, Info } from 'lucide-react';
 
-function App() {
-  const [formData, setFormData] = useState({
-    input_text: '',
-    tone: 'Professional',
-    antal_varianter: 5
+const LinkedInCampaignAnalyzer = () => {
+  const [campaignData, setCampaignData] = useState(null);
+  const [analysis, setAnalysis] = useState(null);
+  const [campaignBreakdown, setCampaignBreakdown] = useState(null);
+  const [error, setError] = useState(null);
+  const [criteria, setCriteria] = useState({
+    ctr: { excellent: 0.8, good: 0.5, poor: 0.3 },
+    cpc: { excellent: 30, good: 50, poor: 80 },
+    conversionRate: { excellent: 3, good: 2, poor: 1 },
+    engagementRate: { excellent: 4, good: 2, poor: 1 },
+    cpl: { excellent: 300, good: 500, poor: 800 }
   });
 
-  const [generatedAds, setGeneratedAds] = useState([]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [qualityScores, setQualityScores] = useState([]);
-
-  const tones = [
-    { value: 'Professional', label: '💼 Professionel', desc: 'Formel og tillidsfuld' },
-    { value: 'Friendly', label: '😊 Venlig', desc: 'Varm og tilgængelig' },
-    { value: 'Confident', label: '💪 Selvsikker', desc: 'Stærk og overbevisende' },
-    { value: 'Educational', label: '🎓 Pædagogisk', desc: 'Informativ og vejledende' }
-  ];
-
-  // Kvalitetskontrol system
-  const bannedWords = new Set([
-    'revolutionerende', 'banebrydende', 'markedsledende', 'bedst i klassen', 
-    'cutting-edge', 'state-of-the-art', 'unik', 'enestående', 'fantastisk',
-    'utrolig', 'ekstraordinær', 'verdensklasse', 'premium', 'luksuriøs'
-  ]);
-
-  const benefitVerbs = [
-    'spar', 'reducer', 'øg', 'sikr', 'lever', 'forbedr', 'optimer',
-    'automatiser', 'strømlin', 'accelerer', 'boost', 'skaler'
-  ];
-
-  const hounisenRequired = ['dansk', 'siden 1973', 'certificeret', 'support', 'kvalitet'];
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  // Sproglig kvalitetskontrol
-  const calculateQualityScore = (text) => {
-    // Specificitets-scoring
-    const hasNumber = /\b\d+(\.\d+)?%?\b/.test(text);
-    const hasBenefitVerb = benefitVerbs.some(v => 
-      new RegExp(`\\b${v}[a-zA-ZæøåÆØÅ]*\\b`, "i").test(text)
-    );
-    const specificity = (hasNumber ? 0.6 : 0) + (hasBenefitVerb ? 0.4 : 0);
-
-    // Sætningslængde (dansk optimeret)
-    const sentences = text.split(/(?<=[.!?])\s+/).filter(Boolean);
-    const words = text.trim().split(/\s+/).length;
-    const avgSentenceLength = words / Math.max(1, sentences.length);
-    const brevity = avgSentenceLength <= 15 ? 1 : Math.max(0, 1 - (avgSentenceLength - 15) / 10);
-
-    // Bannede ord check
-    const lowerText = text.toLowerCase();
-    const hasBannedWords = Array.from(bannedWords).some(word => lowerText.includes(word));
-    const bannedPenalty = hasBannedWords ? 0.3 : 1.0;
-
-    // Aktiv vs passiv stemme (dansk heuristik)
-    const passiveMarkers = ['bliver', 'er blevet', 'blev', 'var', 'blev leveret af'];
-    const hasPassive = passiveMarkers.some(marker => lowerText.includes(marker));
-    const activeBonus = hasPassive ? 0.7 : 1.0;
-
-    const totalScore = (specificity * 0.3 + brevity * 0.3 + bannedPenalty * 0.2 + activeBonus * 0.2);
+  const getScore = (metric, value) => {
+    const c = criteria[metric];
+    if (!c) return 'unknown';
     
-    return {
-      total: Math.min(1, totalScore),
-      specificity,
-      brevity,
-      bannedWords: hasBannedWords,
-      activeVoice: !hasPassive,
-      avgSentenceLength
-    };
-  };
-
-  // Verbedret tekstprocessering med vinkler
-  const parseAndOptimizeWithAngles = (input, tone, angle) => {
-    // Rens input
-    let cleanedInput = input
-      .replace(/\([^)]*\)/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    const stopWords = ['honorar', 'skal ikke indgå', 'mulige budskaber'];
-    stopWords.forEach(stopWord => {
-      cleanedInput = cleanedInput.replace(new RegExp(stopWord, 'gi'), '');
-    });
-
-    // Intelligent emneekstraktion
-    let coreSubject = 'laboratorieudstyr';
-    let subjectVariations = {
-      singular: 'laboratorieudstyr',
-      definite: 'det rigtige udstyr',
-      context: 'laboratorieområdet',
-      benefit: 'pålidelige analyser'
-    };
-
-    if (cleanedInput.toLowerCase().includes('ekg')) {
-      coreSubject = 'EKG-udstyr';
-      subjectVariations = {
-        singular: 'EKG-udstyr',
-        definite: 'præcist EKG-udstyr',
-        context: 'EKG-diagnostik',
-        benefit: 'sikre diagnoser'
-      };
-    } else if (cleanedInput.toLowerCase().includes('mikroskop')) {
-      coreSubject = 'mikroskoper';
-      subjectVariations = {
-        singular: 'mikroskoper',
-        definite: 'kvalitetsmikroskoper',
-        context: 'mikroskopi',
-        benefit: 'skarpe billeder'
-      };
+    if (metric === 'cpc' || metric === 'cpl') {
+      if (value <= c.excellent) return 'excellent';
+      if (value <= c.good) return 'good';
+      if (value <= c.poor) return 'average';
+      return 'poor';
+    } else {
+      if (value >= c.excellent) return 'excellent';
+      if (value >= c.good) return 'good';
+      if (value >= c.poor) return 'average';
+      return 'poor';
     }
-
-    // Vinkel-baserede startere
-    const angleTemplates = {
-      'Pain': {
-        starters: [
-          `Træt af forsinkede leverancer af ${subjectVariations.singular}?`,
-          `Stop med at bekymre dig om ${subjectVariations.context}.`,
-          `Frustreret over manglende support til ${subjectVariations.singular}?`
-        ],
-        benefits: [
-          `Vi løser dine udfordringer med ${subjectVariations.benefit}.`,
-          `Dansk support sikrer hurtig hjælp når du har brug for det.`,
-          `50+ års erfaring garanterer pålidelige løsninger.`
-        ]
-      },
-      'Outcome': {
-        starters: [
-          `Få ${subjectVariations.benefit} med certificeret ${subjectVariations.singular}.`,
-          `Øg din præcision med dansk ${subjectVariations.singular}.`,
-          `Sikr optimal ${subjectVariations.context} med proven kvalitet.`
-        ],
-        benefits: [
-          `Resultater du kan stole på siden 1973.`,
-          `Dag-til-dag levering når du har brug for det.`,
-          `Hounisen garanterer din succes.`
-        ]
-      },
-      'Proof': {
-        starters: [
-          `50+ års tillid fra danske ${subjectVariations.context} professionelle.`,
-          `Over 1000 kunder vælger Hounisens ${subjectVariations.singular}.`,
-          `Siden 1973 har vi leveret ${subjectVariations.benefit} til erhvervet.`
-        ],
-        benefits: [
-          `Certificerede produkter du kan stole på.`,
-          `Danmarks største varelager sikrer tilgængelighed.`,
-          `Dokumenteret kvalitet gennem fem årtier.`
-        ]
-      },
-      'Objection': {
-        starters: [
-          `"For dyrt" er ikke længere et problem med vores ${subjectVariations.singular}.`,
-          `"Svært at bestille" hører fortiden til med Hounisen.`,
-          `"Langsom levering" er ikke et issue med dag-til-dag service.`
-        ],
-        benefits: [
-          `Konkurrencedygtige priser på certificeret kvalitet.`,
-          `Nem bestilling og personlig rådgivning.`,
-          `Hurtig levering og dansk support inkluderet.`
-        ]
-      },
-      'Urgency': {
-        starters: [
-          `Kun 15 konsultationer tilbage i september.`,
-          `Sidste chance for 2024 leveringsaftaler.`,
-          `Begrænsede lagre på populære ${subjectVariations.singular}.`
-        ],
-        benefits: [
-          `Sikr din plads til personlig rådgivning.`,
-          `Book din leveringsaftale før årets udgang.`,
-          `Reservér dit ${subjectVariations.singular} i dag.`
-        ]
-      }
-    };
-
-    const template = angleTemplates[angle] || angleTemplates['Outcome'];
-    
-    return {
-      cleanedInput,
-      coreSubject,
-      subjectVariations,
-      starter: template.starters[Math.floor(Math.random() * template.starters.length)],
-      benefit: template.benefits[Math.floor(Math.random() * template.benefits.length)],
-      angle
-    };
   };
 
-  const generateAdTexts = async () => {
-    setIsGenerating(true);
-    
-    await new Promise(resolve => setTimeout(resolve, 2500));
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
 
-    if (!formData.input_text.trim()) {
-      setGeneratedAds([]);
-      setIsGenerating(false);
+    setError(null);
+
+    try {
+      const Papa = await import('papaparse');
+      
+      const arrayBuffer = await file.arrayBuffer();
+      
+      let fileContent;
+      let encodingUsed = 'unknown';
+      
+      // Prøv UTF-16LE først
+      try {
+        const decoder = new TextDecoder('utf-16le');
+        fileContent = decoder.decode(arrayBuffer);
+        // Tjek om det ser ud til at være valid UTF-16
+        if (!fileContent.includes('�') && (fileContent.includes('Campaign') || fileContent.includes('Impressions'))) {
+          encodingUsed = 'utf-16le';
+          console.log('Successfully decoded as UTF-16LE');
+        } else {
+          throw new Error('Not valid UTF-16LE');
+        }
+      } catch (e) {
+        console.log('UTF-16LE failed, trying UTF-8...');
+        // Prøv UTF-8
+        try {
+          const decoder = new TextDecoder('utf-8');
+          fileContent = decoder.decode(arrayBuffer);
+          encodingUsed = 'utf-8';
+          console.log('Successfully decoded as UTF-8');
+        } catch (e2) {
+          // Prøv Windows-1252 / CP1252
+          console.log('UTF-8 failed, trying Windows-1252...');
+          const decoder = new TextDecoder('windows-1252');
+          fileContent = decoder.decode(arrayBuffer);
+          encodingUsed = 'windows-1252';
+          console.log('Successfully decoded as Windows-1252');
+        }
+      }
+
+      console.log('Encoding used:', encodingUsed);
+      console.log('File content length:', fileContent.length);
+
+      const lines = fileContent.split('\n');
+      const headerIndex = lines.findIndex(line => 
+        line.includes('Start Date') || 
+        line.includes('Campaign Name') || 
+        line.includes('Impressions') ||
+        line.includes('Campaign') // Bredere søgning
+      );
+
+      console.log('Total linjer i fil:', lines.length);
+      console.log('Header index fundet:', headerIndex);
+      console.log('Første 10 linjer:', lines.slice(0, 10).map((l, i) => `${i}: ${l.substring(0, 80)}`));
+
+      if (headerIndex === -1) {
+        throw new Error('Kunne ikke finde header-linjen i CSV-filen. Sørg for at filen er en Campaign Performance Report fra LinkedIn.');
+      }
+
+      const csvData = lines.slice(headerIndex).join('\n');
+      const delimiter = csvData.includes('\t') ? '\t' : ',';
+
+      Papa.default.parse(csvData, {
+        header: true,
+        delimiter: delimiter,
+        dynamicTyping: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          if (results.errors.length > 0) {
+            console.warn('Parse warnings:', results.errors);
+          }
+          processCampaignData(results.data, results.meta.fields);
+        },
+        error: (error) => {
+          throw new Error(`Parse fejl: ${error.message}`);
+        }
+      });
+    } catch (error) {
+      console.error('Upload fejl:', error);
+      setError(`Fejl ved indlæsning: ${error.message}. Prøv venligst igen eller kontakt support.`);
+    }
+  };
+
+  const handleManualInput = () => {
+    const mockData = [
+      {
+        'Campaign Name': "Kampagne A: Value Proposition Focus",
+        'Campaign ID': 1001,
+        'Impressions': 25000,
+        'Clicks': 200,
+        'Total Spent': 1500,
+        'Leads': 18,
+        'Reactions': 95,
+        'Comments': 12,
+        'Shares': 8,
+        'Currency': 'USD',
+        'Clicks to Landing Page': 180
+      },
+      {
+        'Campaign Name': "Kampagne B: Problem-Solution Angle",
+        'Campaign ID': 1002,
+        'Impressions': 20000,
+        'Clicks': 115,
+        'Total Spent': 980,
+        'Leads': 10,
+        'Reactions': 85,
+        'Comments': 33,
+        'Shares': 24,
+        'Currency': 'USD',
+        'Clicks to Landing Page': 95
+      },
+      {
+        'Campaign Name': "Kampagne C: Testimonial Creative",
+        'Campaign ID': 1003,
+        'Impressions': 18000,
+        'Clicks': 156,
+        'Total Spent': 1100,
+        'Leads': 22,
+        'Reactions': 120,
+        'Comments': 45,
+        'Shares': 35,
+        'Currency': 'USD',
+        'Clicks to Landing Page': 142,
+        'Total Social Actions': 200
+      }
+    ];
+    processCampaignData(mockData);
+  };
+
+  const processCampaignData = (data, fields = null) => {
+    if (!data || data.length === 0) {
+      setError('Ingen data fundet i filen');
       return;
     }
 
-    const brandContext = {
-      company: 'Hounisen',
-      heritage: '50+ års erfaring siden 1973',
-      values: 'Service, kvalitet og enkelhed',
-      benefits: 'dag-til-dag levering, dansk support, certificerede produkter',
-      location: 'dansk virksomhed i Skanderborg'
-    };
+    console.log('Processing data:', data.length, 'rows');
+    if (fields) console.log('Available fields:', fields);
 
-    // Definerede vinkler for variation
-    const angles = ['Pain', 'Outcome', 'Proof', 'Objection', 'Urgency'];
-    const ads = [];
-    const scores = [];
-
-    for (let i = 0; i < formData.antal_varianter; i++) {
-      const angle = angles[i] || angles[i % angles.length];
-      const parsed = parseAndOptimizeWithAngles(formData.input_text, formData.tone, angle);
-
-      // Skab naturlige templates baseret på vinkel
-      let introduktion = `${parsed.starter} ${parsed.benefit}`;
+    const campaignGroups = {};
+    
+    data.forEach(row => {
+      const campaignName = row['Campaign Name'] || row['Campaign Group Name'] || 'Unavngivet Kampagne';
+      const campaignId = row['Campaign ID'] || campaignName;
       
-      const overskrift = [
-        `${parsed.subjectVariations.singular} - Dansk kvalitet`,
-        `Pålidelig ${parsed.subjectVariations.context} siden 1973`,
-        `${brandContext.company}: ${parsed.subjectVariations.singular}`,
-        `Certificeret ${parsed.subjectVariations.singular}`,
-        `Eksperter i ${parsed.subjectVariations.context}`
-      ][i] || `${parsed.subjectVariations.singular} - Dansk kvalitet`;
-
-      const beskrivelse = [
-        `${brandContext.values} inden for ${parsed.subjectVariations.context}.`,
-        `Gratis rådgivning og ${brandContext.benefits}.`,
-        `Kontakt os for professionel vejledning.`,
-        `Skræddersyede løsninger til dine behov.`,
-        `${brandContext.company} - din danske partner.`
-      ][i] || `${brandContext.values} inden for ${parsed.subjectVariations.context}.`;
-
-      const alt_text = `${brandContext.company} ${parsed.subjectVariations.singular} til professionelt brug`;
-
-      // Optimér længder
-      if (introduktion.length > 150) {
-        const lastSpace = introduktion.lastIndexOf(' ', 147);
-        introduktion = introduktion.substring(0, lastSpace) + '...';
+      if (!campaignGroups[campaignId]) {
+        campaignGroups[campaignId] = {
+          name: campaignName,
+          rows: []
+        };
       }
+      campaignGroups[campaignId].rows.push(row);
+    });
 
-      // Beregn kvalitetsscore
-      const fullText = `${introduktion} ${overskrift} ${beskrivelse}`;
-      const qualityScore = calculateQualityScore(fullText);
+    const campaignMetrics = Object.values(campaignGroups).map(campaign => {
+      const totals = campaign.rows.reduce((acc, row) => {
+        const impressions = row.Impressions || row.impressions || 0;
+        const clicks = row.Clicks || row.clicks || 0;
+        const spend = row['Total Spent'] || row.Spend || row.spend || row['Total Budget'] || 0;
+        const conversions = row.Conversions || row.Leads || row.conversions || row.leads || 0;
+        const reactions = row.Reactions || row.Likes || row.reactions || row.likes || 0;
+        const comments = row.Comments || row.comments || 0;
+        const shares = row.Shares || row.shares || 0;
+        const currency = row.Currency || acc.currency || 'USD';
+        const clicksToLandingPage = row['Clicks to Landing Page'] || 0;
+        const totalSocialActions = row['Total Social Actions'] || 0;
 
-      ads.push({
-        id: i + 1,
-        introduktion,
-        overskrift: overskrift.length > 70 ? overskrift.substring(0, 67) + '...' : overskrift,
-        beskrivelse: beskrivelse.length > 200 ? beskrivelse.substring(0, 197) + '...' : beskrivelse,
-        alt_text: alt_text.length > 125 ? alt_text.substring(0, 122) + '...' : alt_text,
-        angle: angle,
-        introduktionLength: introduktion.length,
-        overskriftLength: overskrift.length > 70 ? 70 : overskrift.length,
-        beskrivelseLength: beskrivelse.length > 200 ? 200 : beskrivelse.length,
-        altTextLength: alt_text.length > 125 ? 125 : alt_text.length
+        return {
+          impressions: acc.impressions + impressions,
+          clicks: acc.clicks + clicks,
+          spend: acc.spend + spend,
+          conversions: acc.conversions + conversions,
+          reactions: acc.reactions + reactions,
+          comments: acc.comments + comments,
+          shares: acc.shares + shares,
+          currency: currency,
+          clicksToLandingPage: acc.clicksToLandingPage + clicksToLandingPage,
+          totalSocialActions: acc.totalSocialActions + totalSocialActions
+        };
+      }, {
+        impressions: 0,
+        clicks: 0,
+        spend: 0,
+        conversions: 0,
+        reactions: 0,
+        comments: 0,
+        shares: 0,
+        currency: 'USD',
+        clicksToLandingPage: 0,
+        totalSocialActions: 0
       });
 
-      scores.push(qualityScore);
+      const usdToDkkRate = 7.5;
+      const spendDKK = totals.currency === 'USD' ? totals.spend * usdToDkkRate : totals.spend;
+
+      const metrics = {
+        name: campaign.name,
+        ...totals,
+        spendDKK: spendDKK,
+        ctr: totals.impressions > 0 ? (totals.clicks / totals.impressions * 100).toFixed(2) : 0,
+        cpc: totals.clicks > 0 ? (spendDKK / totals.clicks).toFixed(2) : 0,
+        conversionRate: totals.clicks > 0 ? (totals.conversions / totals.clicks * 100).toFixed(2) : 0,
+        cpl: totals.conversions > 0 ? (spendDKK / totals.conversions).toFixed(2) : 0,
+        engagementRate: totals.impressions > 0 ? 
+          ((totals.reactions + totals.comments + totals.shares) / totals.impressions * 100).toFixed(2) : 0,
+        totalEngagements: totals.reactions + totals.comments + totals.shares,
+        landingPageClickRate: totals.clicks > 0 ? (totals.clicksToLandingPage / totals.clicks * 100).toFixed(1) : 0,
+        socialActionsRate: totals.impressions > 0 ? (totals.totalSocialActions / totals.impressions * 100).toFixed(2) : 0
+      };
+
+      const scores = {
+        ctr: getScore('ctr', parseFloat(metrics.ctr)),
+        cpc: getScore('cpc', parseFloat(metrics.cpc)),
+        conversionRate: getScore('conversionRate', parseFloat(metrics.conversionRate)),
+        engagementRate: getScore('engagementRate', parseFloat(metrics.engagementRate))
+      };
+
+      const scoreValues = { excellent: 4, good: 3, average: 2, poor: 1 };
+      const validScores = Object.values(scores).filter(s => s !== null);
+      const totalScore = validScores.reduce((sum, score) => sum + scoreValues[score], 0);
+      const maxScore = validScores.length * 4;
+      const overallScore = (totalScore / maxScore * 100).toFixed(0);
+
+      return {
+        ...metrics,
+        scores,
+        overallScore: parseInt(overallScore)
+      };
+    });
+
+    campaignMetrics.sort((a, b) => b.overallScore - a.overallScore);
+    setCampaignBreakdown(campaignMetrics);
+
+    const totals = data.reduce((acc, row) => {
+      const impressions = row.Impressions || row.impressions || 0;
+      const clicks = row.Clicks || row.clicks || 0;
+      const spend = row['Total Spent'] || row.Spend || row.spend || row['Total Budget'] || 0;
+      const conversions = row.Conversions || row.Leads || row.conversions || row.leads || 0;
+      const reactions = row.Reactions || row.Likes || row.reactions || row.likes || 0;
+      const comments = row.Comments || row.comments || 0;
+      const shares = row.Shares || row.shares || 0;
+      const currency = row.Currency || acc.currency || 'USD';
+      const totalSocialActions = row['Total Social Actions'] || 0;
+
+      return {
+        impressions: acc.impressions + impressions,
+        clicks: acc.clicks + clicks,
+        spend: acc.spend + spend,
+        conversions: acc.conversions + conversions,
+        reactions: acc.reactions + reactions,
+        comments: acc.comments + comments,
+        shares: acc.shares + shares,
+        campaignName: row['Campaign Group Name'] || acc.campaignName || 'LinkedIn Kampagne Gruppe',
+        currency: currency,
+        totalSocialActions: acc.totalSocialActions + totalSocialActions
+      };
+    }, {
+      impressions: 0,
+      clicks: 0,
+      spend: 0,
+      conversions: 0,
+      reactions: 0,
+      comments: 0,
+      shares: 0,
+      campaignName: '',
+      currency: 'USD',
+      totalSocialActions: 0
+    });
+
+    console.log('Aggregated totals:', totals);
+
+    const usdToDkkRate = 7.5;
+    const spendDKK = totals.currency === 'USD' ? totals.spend * usdToDkkRate : totals.spend;
+
+    const calculated = {
+      ctr: totals.impressions > 0 ? (totals.clicks / totals.impressions * 100).toFixed(2) : 0,
+      cpc: totals.clicks > 0 ? (spendDKK / totals.clicks).toFixed(2) : 0,
+      conversionRate: totals.clicks > 0 ? (totals.conversions / totals.clicks * 100).toFixed(2) : 0,
+      cpl: totals.conversions > 0 ? (spendDKK / totals.conversions).toFixed(2) : 0,
+              engagementRate: totals.impressions > 0 ? 
+        ((totals.reactions + totals.comments + totals.shares) / totals.impressions * 100).toFixed(2) : 0,
+      totalEngagements: totals.reactions + totals.comments + totals.shares,
+      spendDKK: spendDKK,
+      exchangeRate: usdToDkkRate,
+      socialActionsRate: totals.impressions > 0 ? (totals.totalSocialActions / totals.impressions * 100).toFixed(2) : 0
+    };
+
+    setCampaignData({ 
+      ...totals, 
+      ...calculated, 
+      name: totals.campaignName 
+    });
+    
+    analyzeCampaign({ ...totals, ...calculated });
+    setError(null);
+  };
+
+  const analyzeCampaign = (data) => {
+    const scores = {
+      ctr: getScore('ctr', parseFloat(data.ctr)),
+      cpc: getScore('cpc', parseFloat(data.cpc)),
+      conversionRate: getScore('conversionRate', parseFloat(data.conversionRate)),
+      engagementRate: getScore('engagementRate', parseFloat(data.engagementRate)),
+      cpl: data.conversions > 0 ? getScore('cpl', parseFloat(data.cpl)) : null
+    };
+
+    const scoreValues = { excellent: 4, good: 3, average: 2, poor: 1 };
+    const validScores = Object.values(scores).filter(s => s !== null);
+    const totalScore = validScores.reduce((sum, score) => sum + scoreValues[score], 0);
+    const maxScore = validScores.length * 4;
+    const overallScore = (totalScore / maxScore * 100).toFixed(0);
+
+    let overallRating, verdict, recommendations;
+
+    if (overallScore >= 75) {
+      overallRating = 'Fremragende kampagne';
+      verdict = 'Denne kampagne performer ekstremt godt og overgår industristandarder. Budgettet er godt investeret.';
+      recommendations = [
+        'Skalér kampagnen ved at øge budgettet gradvist med 20-30%',
+        'Dokumentér succesfaktorerne (targeting, creative, budskaber) til fremtidige kampagner',
+        'Test lignende målgrupper med samme vinkel',
+        'Overvej at udvide til andre kanaler med lignende strategi'
+      ];
+    } else if (overallScore >= 60) {
+      overallRating = 'God kampagne';
+      verdict = 'Kampagnen performer over gennemsnittet og leverer solid værdi. Der er potentiale for optimering.';
+      recommendations = [
+        'Identificér top-performende annoncer og allokér mere budget til disse',
+        'A/B test forskellige versioner af dine best performers',
+        'Optimér målgruppesegmenter - fjern underperformende segmenter',
+        'Fortsæt med at monitorere dagligt og justér bud-strategi'
+      ];
+    } else if (overallScore >= 45) {
+      overallRating = 'Gennemsnitlig kampagne';
+      verdict = 'Kampagnen leverer på nogle områder, men der er betydeligt rum for forbedring før den kan kaldes succesfuld.';
+      recommendations = [
+        'Gennemgå og revider annonce-creative og budskaber - test nye hooks',
+        'Analysér målgruppens demografi og adfærd grundigt i Campaign Manager',
+        'Test forskellige bud-strategier (automated vs manual bidding)',
+        'Overvej at pause eller stop lavt-performerende annoncer',
+        'Benchmark mod konkurrenters kommunikation og tilbud'
+      ];
+    } else {
+      overallRating = 'Kampagne kræver handling';
+      verdict = 'Kampagnen underperformer markant. Umiddelbar handling er nødvendig for at undgå yderligere budget-spild.';
+      recommendations = [
+        'STOP eller pause kampagnen øjeblikkeligt',
+        'Gennemfør grundig analyse af målgruppe-fit og relevans',
+        'Revurdér hele kampagnestrategi, værditilbud og budskaber fra bunden',
+        'Test helt nye creatives med forskellige value propositions',
+        'Overvej om LinkedIn er den rette kanal for dette mål',
+        'Konsulter med LinkedIn kampagne-eksperter eller agentur'
+      ];
     }
 
-    // Sortér efter kvalitet
-    const sortedIndices = scores
-      .map((score, index) => ({ score: score.total, index }))
-      .sort((a, b) => b.score - a.score)
-      .map(item => item.index);
+    const insights = [];
+    
+    if (scores.ctr === 'excellent') {
+      insights.push({ type: 'success', text: 'Fremragende CTR - dine annoncer fanger målgruppens opmærksomhed effektivt. Dette er et stærkt fundament.' });
+    } else if (scores.ctr === 'poor') {
+      insights.push({ type: 'warning', text: 'Lav CTR indikerer at annoncerne ikke resonerer med målgruppen. Prøv nye hooks, visuals eller værditilbud.' });
+    }
 
-    const sortedAds = sortedIndices.map(i => ads[i]);
-    const sortedScores = sortedIndices.map(i => scores[i]);
+    if (data.conversions > 0) {
+      if (scores.conversionRate === 'excellent') {
+        insights.push({ type: 'success', text: 'Høj konverteringsrate viser stærk kampagne-relevans og effektiv landing page experience.' });
+      } else if (scores.conversionRate === 'poor') {
+        insights.push({ type: 'warning', text: 'Lav konverteringsrate - gennemgå landing page oplevelse, message match og formular-friktion.' });
+      }
+    } else {
+      insights.push({ type: 'critical', text: 'Ingen conversions registreret. Tjek conversion tracking, eller revurdér kampagne-mål og targeting.' });
+    }
 
-    setGeneratedAds(sortedAds);
-    setQualityScores(sortedScores);
-    setIsGenerating(false);
+    if (scores.cpc === 'poor' && scores.ctr === 'poor') {
+      insights.push({ type: 'critical', text: 'Høj CPC kombineret med lav CTR er kritisk ineffektivt. Kampagnen er ikke omkostningseffektiv i sin nuværende form.' });
+    }
+
+    if (scores.engagementRate === 'excellent') {
+      insights.push({ type: 'success', text: 'Stærk engagement-rate indikerer at indholdet skaber værdi og dialog. Dette bygger brand awareness.' });
+    } else if (scores.engagementRate === 'poor' && data.impressions > 1000) {
+      insights.push({ type: 'warning', text: 'Meget lav engagement trods gode impressions. Indholdet mangler måske relevans eller emotional appeal.' });
+    }
+
+    if (data.conversions > 0 && scores.cpl === 'poor') {
+      insights.push({ type: 'warning', text: `Cost per lead (${data.cpl} kr) er for høj. Optimér targeting eller revurdér kampagnens viabilitet ved dette prisniveau.` });
+    }
+
+    if (parseFloat(data.cpc) > 100) {
+      insights.push({ type: 'critical', text: 'Meget høj CPC indikerer enten stor konkurrence, dårligt quality score eller forkert bidding-strategi.' });
+    }
+
+    setAnalysis({
+      scores,
+      overallScore,
+      overallRating,
+      verdict,
+      recommendations,
+      insights
+    });
   };
 
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
+  const getScoreColor = (score) => {
+    switch(score) {
+      case 'excellent': return 'text-green-600 bg-green-50 border-green-200';
+      case 'good': return 'text-blue-600 bg-blue-50 border-blue-200';
+      case 'average': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      case 'poor': return 'text-red-600 bg-red-50 border-red-200';
+      default: return 'text-gray-600 bg-gray-50 border-gray-200';
+    }
   };
 
-  const exportToCSV = () => {
-    const headers = ['Variant', 'Vinkel', 'Introduktion', 'Overskrift', 'Beskrivelse', 'Alt-tekst', 'Kvalitetsscore'];
-    const csvContent = [
-      headers.join(','),
-      ...generatedAds.map((ad, idx) => [
-        `Variant ${ad.id}`,
-        ad.angle,
-        `"${ad.introduktion}"`,
-        `"${ad.overskrift}"`,
-        `"${ad.beskrivelse}"`,
-        `"${ad.alt_text}"`,
-        qualityScores[idx] ? qualityScores[idx].total.toFixed(2) : ''
-      ].join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `hounisen-linkedin-ads-${Date.now()}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+  const getScoreLabel = (score) => {
+    switch(score) {
+      case 'excellent': return 'Fremragende';
+      case 'good': return 'God';
+      case 'average': return 'Gennemsnitlig';
+      case 'poor': return 'Svag';
+      default: return 'N/A';
+    }
   };
 
-  const getQualityColor = (score) => {
-    if (score >= 0.8) return 'text-green-600 bg-green-50';
-    if (score >= 0.6) return 'text-yellow-600 bg-yellow-50';
-    return 'text-red-600 bg-red-50';
+  const getInsightIcon = (type) => {
+    switch(type) {
+      case 'success': return <CheckCircle className="w-5 h-5 text-green-600" />;
+      case 'warning': return <AlertCircle className="w-5 h-5 text-yellow-600" />;
+      case 'critical': return <AlertCircle className="w-5 h-5 text-red-600" />;
+      default: return <Info className="w-5 h-5 text-gray-600" />;
+    }
   };
-
-  const selectedTone = tones.find(t => t.value === formData.tone);
 
   return (
-    <div className="max-w-6xl mx-auto p-6 bg-gradient-to-br from-blue-50 to-indigo-50 min-h-screen">
-      <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white">
-          <h1 className="text-3xl font-bold mb-2">Hounisen</h1>
-          <p className="text-blue-100">Intelligent LinkedIn Annonce Generator med Kvalitetskontrol</p>
+    <div className="max-w-6xl mx-auto p-6 bg-gray-50 min-h-screen">
+      <div className="bg-white rounded-lg shadow-sm p-8 mb-6">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">LinkedIn Kampagne Analysator</h1>
+        <p className="text-gray-600 mb-6">Upload din Campaign Performance Report fra LinkedIn Campaign Manager, eller test med demo-data</p>
+        
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
+        )}
+
+        <div className="flex gap-4">
+          <label className="flex-1 cursor-pointer">
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 transition">
+              <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+              <span className="text-sm text-gray-600 block mb-1 font-medium">Upload LinkedIn CSV</span>
+              <span className="text-xs text-gray-500">Campaign Performance Report</span>
+              <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
+            </div>
+          </label>
+          
+          <button
+            onClick={handleManualInput}
+            className="flex-1 border-2 border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 hover:bg-blue-50 transition"
+          >
+            <FileText className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+            <span className="text-sm text-gray-600 block mb-1 font-medium">Brug demo-data</span>
+            <span className="text-xs text-gray-500">Test værktøjet</span>
+          </button>
         </div>
 
-        <div className="flex flex-col lg:flex-row">
-          {/* Input Panel */}
-          <div className="lg:w-1/3 p-6 bg-gray-50 border-r">
-            <h2 className="text-xl font-semibold mb-4">Hvad handler din annonce om?</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Beskriv dit indhold, produkt eller budskab</label>
-                <textarea
-                  name="input_text"
-                  value={formData.input_text}
-                  onChange={handleInputChange}
-                  placeholder="f.eks. Vigtigheden af præcist EKG-udstyr i psykiatrisk praksis"
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none h-32"
-                  rows={6}
-                />
-                <div className="text-right text-xs text-gray-500 mt-1">
-                  {formData.input_text.length} / 500 tegn
-                </div>
-              </div>
+        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-start gap-2">
+            <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-blue-800">
+              <strong>Tip:</strong> I LinkedIn Campaign Manager, vælg din kampagne → Analytics → Export → Campaign Performance Report
+            </p>
+          </div>
+        </div>
+      </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Tone of Voice</label>
-                <div className="relative">
-                  <select
-                    name="tone"
-                    value={formData.tone}
-                    onChange={handleInputChange}
-                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
-                  >
-                    {tones.map(tone => (
-                      <option key={tone.value} value={tone.value}>
-                        {tone.label}
-                      </option>
-                    ))}
-                  </select>
+      {campaignData && analysis && (
+        <>
+          <div className="bg-white rounded-lg shadow-sm p-8 mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Samlet Overview: {campaignData.name}</h2>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-lg border border-gray-200">
+                <div className="text-sm text-gray-600 mb-1">Impressions</div>
+                <div className="text-2xl font-bold text-gray-900">{campaignData.impressions.toLocaleString('da-DK')}</div>
+              </div>
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
+                <div className="text-sm text-gray-600 mb-1">Clicks</div>
+                <div className="text-2xl font-bold text-blue-900">{campaignData.clicks.toLocaleString('da-DK')}</div>
+              </div>
+              <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
+                <div className="text-sm text-gray-600 mb-1">Conversions</div>
+                <div className="text-2xl font-bold text-green-900">{campaignData.conversions}</div>
+              </div>
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
+                <div className="text-sm text-gray-600 mb-1">Total Forbrug</div>
+                <div className="text-2xl font-bold text-purple-900">
+                  {campaignData.spend.toLocaleString('da-DK', {minimumFractionDigits: 2, maximumFractionDigits: 2})} {campaignData.currency}
                 </div>
-                {selectedTone && (
-                  <p className="text-xs text-gray-600 mt-1">{selectedTone.desc}</p>
+                {campaignData.currency === 'USD' && (
+                  <div className="text-sm text-purple-700 mt-1">
+                    ≈ {campaignData.spendDKK.toLocaleString('da-DK', {minimumFractionDigits: 2, maximumFractionDigits: 2})} DKK
+                    <span className="text-xs text-purple-600 ml-1">(kurs: {campaignData.exchangeRate})</span>
+                  </div>
                 )}
               </div>
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Antal Varianter</label>
-                <select
-                  name="antal_varianter"
-                  value={formData.antal_varianter}
-                  onChange={handleInputChange}
-                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value={3}>3 varianter</option>
-                  <option value={5}>5 varianter</option>
-                </select>
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 mb-6 border border-blue-200">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-gray-900">Samlet Vurdering</h3>
+                <div className="text-3xl font-bold text-blue-600">{analysis.overallScore}%</div>
               </div>
-
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <div className="flex items-start space-x-2">
-                  <Lightbulb className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <div className="text-sm text-blue-800">
-                    <p className="font-medium mb-1">Automatiske Vinkler:</p>
-                    <ul className="text-xs space-y-1">
-                      <li>• Problem-fokuseret (Pain)</li>
-                      <li>• Resultat-fokuseret (Outcome)</li>
-                      <li>• Dokumentation (Proof)</li>
-                      <li>• Indvending-afkræfter (Objection)</li>
-                      <li>• Tidsbegrænset (Urgency)</li>
-                    </ul>
-                  </div>
+              <div className="mb-2">
+                <div className="text-lg font-semibold text-gray-900 mb-2">{analysis.overallRating}</div>
+                <div className="w-full bg-gray-200 rounded-full h-3">
+                  <div 
+                    className="bg-gradient-to-r from-blue-500 to-indigo-600 h-3 rounded-full transition-all duration-500"
+                    style={{ width: `${analysis.overallScore}%` }}
+                  ></div>
                 </div>
               </div>
-
-              <div className="bg-amber-50 p-3 rounded-lg">
-                <div className="flex items-start space-x-2">
-                  <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                  <div className="text-xs text-amber-800">
-                    <p className="font-medium mb-1">Bannede Ord:</p>
-                    <p>revolutionerende, banebrydende, markedsledende, unik, fantastisk</p>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={generateAdTexts}
-                disabled={isGenerating || !formData.input_text.trim()}
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-3 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 flex items-center justify-center"
-              >
-                {isGenerating ? (
-                  <RefreshCw className="animate-spin mr-2 w-5 h-5" />
-                ) : null}
-                {isGenerating ? 'Genererer Skarpe LinkedIn Annoncer...' : 'Generer Skarpe LinkedIn Annoncer'}
-              </button>
+              <p className="text-gray-700 mt-4">{analysis.verdict}</p>
             </div>
           </div>
 
-          {/* Results Panel */}
-          <div className="lg:w-2/3 p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold">Kvalitetskontrollerede Annoncer</h2>
-              {generatedAds.length > 0 && (
-                <button
-                  onClick={exportToCSV}
-                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center"
-                >
-                  <Download className="mr-2 w-4 h-4" />
-                  Eksporter CSV
-                </button>
-              )}
-            </div>
-
-            {generatedAds.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <p>Skriv dit annonce-indhold ovenfor og få kvalitetskontrollerede LinkedIn annoncer</p>
-                <p className="text-sm mt-2">Alle annoncer bliver automatisk scoret på sprog, specificitet og klarhed</p>
+          <div className="bg-white rounded-lg shadow-sm p-8 mb-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-6">Performance Metrics</h3>
+            
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className={`border-2 rounded-lg p-4 ${getScoreColor(analysis.scores.ctr)}`}>
+                <div className="flex justify-between items-start mb-2">
+                  <div className="text-sm font-medium text-gray-700">Click-Through Rate</div>
+                  <span className={`text-xs px-2 py-1 rounded font-semibold border ${getScoreColor(analysis.scores.ctr)}`}>
+                    {getScoreLabel(analysis.scores.ctr)}
+                  </span>
+                </div>
+                <div className="text-3xl font-bold">{campaignData.ctr}%</div>
+                <div className="text-xs text-gray-600 mt-1">Benchmark: ≥0.5% god</div>
               </div>
-            ) : (
-              <div className="space-y-6">
-                {generatedAds.map((ad, idx) => (
-                  <div key={ad.id} className="bg-white border rounded-xl p-6 shadow-sm">
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-lg font-semibold text-blue-600">
-                        Variant {ad.id} - {ad.angle}
-                      </h3>
-                      {qualityScores[idx] && (
-                        <div className={`px-3 py-1 rounded-full text-sm font-medium ${getQualityColor(qualityScores[idx].total)}`}>
-                          Kvalitet: {(qualityScores[idx].total * 100).toFixed(0)}%
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="space-y-4">
-                      {/* Introduktionstekst */}
-                      <div>
-                        <div className="flex justify-between items-center mb-2">
-                          <label className="text-sm font-medium text-gray-700">Introduktionstekst</label>
-                          <span className={`text-xs px-2 py-1 rounded ${ad.introduktionLength <= 150 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                            {ad.introduktionLength}/150 tegn
-                          </span>
-                        </div>
-                        <div className="relative">
-                          <textarea
-                            value={ad.introduktion}
-                            readOnly
-                            className="w-full p-3 border rounded-lg bg-gray-50 resize-none"
-                            rows={3}
-                          />
-                          <button
-                            onClick={() => copyToClipboard(ad.introduktion)}
-                            className="absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-600"
-                          >
-                            <Copy className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
 
-                      {/* Headline */}
-                      <div>
-                        <div className="flex justify-between items-center mb-2">
-                          <label className="text-sm font-medium text-gray-700">Headline (Overskrift)</label>
-                          <span className={`text-xs px-2 py-1 rounded ${ad.overskriftLength <= 70 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                            {ad.overskriftLength}/70 tegn
-                          </span>
-                        </div>
-                        <div className="relative">
-                          <input
-                            value={ad.overskrift}
-                            readOnly
-                            className="w-full p-3 border rounded-lg bg-gray-50"
-                          />
-                          <button
-                            onClick={() => copyToClipboard(ad.overskrift)}
-                            className="absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-600"
-                          >
-                            <Copy className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
+              <div className={`border-2 rounded-lg p-4 ${getScoreColor(analysis.scores.cpc)}`}>
+                <div className="flex justify-between items-start mb-2">
+                  <div className="text-sm font-medium text-gray-700">Cost Per Click</div>
+                  <span className={`text-xs px-2 py-1 rounded font-semibold border ${getScoreColor(analysis.scores.cpc)}`}>
+                    {getScoreLabel(analysis.scores.cpc)}
+                  </span>
+                </div>
+                <div className="text-3xl font-bold">{campaignData.cpc} kr</div>
+                <div className="text-xs text-gray-600 mt-1">Benchmark: ≤50kr god</div>
+              </div>
 
-                      {/* Description */}
-                      <div>
-                        <div className="flex justify-between items-center mb-2">
-                          <label className="text-sm font-medium text-gray-700">Description (Beskrivelse)</label>
-                          <span className={`text-xs px-2 py-1 rounded ${ad.beskrivelseLength <= 200 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                            {ad.beskrivelseLength}/200 tegn
-                          </span>
-                        </div>
-                        <div className="relative">
-                          <textarea
-                            value={ad.beskrivelse}
-                            readOnly
-                            className="w-full p-3 border rounded-lg bg-gray-50 resize-none"
-                            rows={2}
-                          />
-                          <button
-                            onClick={() => copyToClipboard(ad.beskrivelse)}
-                            className="absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-600"
-                          >
-                            <Copy className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
+              <div className={`border-2 rounded-lg p-4 ${getScoreColor(analysis.scores.conversionRate)}`}>
+                <div className="flex justify-between items-start mb-2">
+                  <div className="text-sm font-medium text-gray-700">Conversion Rate</div>
+                  <span className={`text-xs px-2 py-1 rounded font-semibold border ${getScoreColor(analysis.scores.conversionRate)}`}>
+                    {getScoreLabel(analysis.scores.conversionRate)}
+                  </span>
+                </div>
+                <div className="text-3xl font-bold">{campaignData.conversionRate}%</div>
+                <div className="text-xs text-gray-600 mt-1">Benchmark: ≥2% god</div>
+              </div>
 
-                      {/* Alt-tekst */}
-                      <div>
-                        <div className="flex justify-between items-center mb-2">
-                          <label className="text-sm font-medium text-gray-700">Alt-tekst (Tilgængelighed)</label>
-                          <span className={`text-xs px-2 py-1 rounded ${ad.altTextLength <= 125 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                            {ad.altTextLength}/125 tegn
-                          </span>
-                        </div>
-                        <div className="relative">
-                          <input
-                            value={ad.alt_text}
-                            readOnly
-                            className="w-full p-3 border rounded-lg bg-gray-50"
-                          />
-                          <button
-                            onClick={() => copyToClipboard(ad.alt_text)}
-                            className="absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-600"
-                          >
-                            <Copy className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
+              {campaignData.conversions > 0 && (
+                <div className={`border-2 rounded-lg p-4 ${getScoreColor(analysis.scores.cpl)}`}>
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="text-sm font-medium text-gray-700">Cost Per Lead</div>
+                    <span className={`text-xs px-2 py-1 rounded font-semibold border ${getScoreColor(analysis.scores.cpl)}`}>
+                      {getScoreLabel(analysis.scores.cpl)}
+                    </span>
+                  </div>
+                  <div className="text-3xl font-bold">{campaignData.cpl} kr</div>
+                  <div className="text-xs text-gray-600 mt-1">Benchmark: ≤500kr god</div>
+                </div>
+              )}
 
-                      {/* Kvalitets-detaljer */}
-                      {qualityScores[idx] && (
-                        <div className="bg-gray-50 p-3 rounded-lg mt-4">
-                          <h4 className="text-sm font-medium text-gray-700 mb-2">Kvalitetsanalyse:</h4>
-                          <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div>Specificitet: {(qualityScores[idx].specificity * 100).toFixed(0)}%</div>
-                            <div>Klarhed: {(qualityScores[idx].brevity * 100).toFixed(0)}%</div>
-                            <div>Aktiv stemme: {qualityScores[idx].activeVoice ? 'Ja' : 'Nej'}</div>
-                            <div>Bannede ord: {qualityScores[idx].bannedWords ? 'Fundet' : 'Ingen'}</div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+              <div className={`border-2 rounded-lg p-4 ${getScoreColor(analysis.scores.engagementRate)}`}>
+                <div className="flex justify-between items-start mb-2">
+                  <div className="text-sm font-medium text-gray-700">Engagement Rate</div>
+                  <span className={`text-xs px-2 py-1 rounded font-semibold border ${getScoreColor(analysis.scores.engagementRate)}`}>
+                    {getScoreLabel(analysis.scores.engagementRate)}
+                  </span>
+                </div>
+                <div className="text-3xl font-bold">{campaignData.engagementRate}%</div>
+                <div className="text-xs text-gray-600 mt-1">Benchmark: ≥2% god</div>
+              </div>
+
+              <div className="border-2 rounded-lg p-4 bg-gray-50 border-gray-200">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="text-sm font-medium text-gray-700">Total Engagement</div>
+                </div>
+                <div className="text-3xl font-bold text-gray-900">{campaignData.totalEngagements}</div>
+                <div className="text-xs text-gray-600 mt-1">{campaignData.reactions} reactions · {campaignData.comments} kommentarer · {campaignData.shares} delinger</div>
+              </div>
+            </div>
+          </div>
+
+          {analysis.insights.length > 0 && (
+            <div className="bg-white rounded-lg shadow-sm p-8 mb-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Nøgleindsigter</h3>
+              <div className="space-y-3">
+                {analysis.insights.map((insight, index) => (
+                  <div key={index} className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    {getInsightIcon(insight.type)}
+                    <p className="text-gray-700 flex-1">{insight.text}</p>
                   </div>
                 ))}
               </div>
-            )}
+            </div>
+          )}
+
+          {campaignBreakdown && campaignBreakdown.length > 1 && (
+            <div className="bg-white rounded-lg shadow-sm p-8 mb-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900">Kampagne-sammenligning</h3>
+                <span className="text-sm text-gray-600">{campaignBreakdown.length} kampagner</span>
+              </div>
+
+              <div className="space-y-4">
+                {campaignBreakdown.map((campaign, index) => (
+                  <div key={index} className="border-2 rounded-lg p-6 hover:shadow-md transition">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${
+                            index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-amber-600' : 'bg-gray-300'
+                          }`}>
+                            {index + 1}
+                          </div>
+                          <h4 className="text-lg font-bold text-gray-900">{campaign.name}</h4>
+                        </div>
+                        <div className="flex items-center gap-2 ml-11">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-600">Performance Score:</span>
+                            <span className={`font-bold text-lg ${
+                              campaign.overallScore >= 75 ? 'text-green-600' :
+                              campaign.overallScore >= 60 ? 'text-blue-600' :
+                              campaign.overallScore >= 45 ? 'text-yellow-600' : 'text-red-600'
+                            }`}>
+                              {campaign.overallScore}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 ml-11">
+                      <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                        <div className="text-xs text-gray-600 mb-1">Impressions</div>
+                        <div className="text-lg font-bold text-gray-900">{campaign.impressions.toLocaleString('da-DK')}</div>
+                      </div>
+
+                      <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                        <div className="text-xs text-gray-600 mb-1">Clicks</div>
+                        <div className="text-lg font-bold text-gray-900">{campaign.clicks.toLocaleString('da-DK')}</div>
+                      </div>
+                      
+                      <div className={`p-3 rounded border-2 ${getScoreColor(campaign.scores.ctr)}`}>
+                        <div className="text-xs font-medium mb-1">CTR</div>
+                        <div className="text-lg font-bold">{campaign.ctr}%</div>
+                        <div className="text-xs opacity-75 mt-0.5">{getScoreLabel(campaign.scores.ctr)}</div>
+                      </div>
+
+                      <div className={`p-3 rounded border-2 ${getScoreColor(campaign.scores.engagementRate)}`}>
+                        <div className="text-xs font-medium mb-1">Engagement</div>
+                        <div className="text-lg font-bold">{campaign.engagementRate}%</div>
+                        <div className="text-xs opacity-75 mt-0.5">{campaign.totalEngagements} total</div>
+                      </div>
+
+                      <div className="bg-blue-50 p-3 rounded border-2 border-blue-200">
+                        <div className="text-xs text-blue-700 font-medium mb-1">→ Landing Page</div>
+                        <div className="text-lg font-bold text-blue-900">{campaign.clicksToLandingPage}</div>
+                        <div className="text-xs text-blue-700 mt-0.5">{campaign.landingPageClickRate}% af clicks</div>
+                      </div>
+
+                      <div className="bg-purple-50 p-3 rounded border-2 border-purple-200">
+                        <div className="text-xs text-purple-700 font-medium mb-1">Handlinger</div>
+                        <div className="text-lg font-bold text-purple-900">{campaign.totalSocialActions || 0}</div>
+                        <div className="text-xs text-purple-700 mt-0.5">{campaign.socialActionsRate}% rate</div>
+                      </div>
+
+                      <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                        <div className="text-xs text-gray-600 mb-1">Forbrug</div>
+                        <div className="text-lg font-bold text-gray-900">{campaign.spendDKK.toLocaleString('da-DK', {maximumFractionDigits: 0})} kr</div>
+                      </div>
+                    </div>
+
+                    {index === 0 && (
+                      <div className="mt-4 ml-11 p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+                          <p className="text-sm text-green-800">
+                            <strong>Top Performer:</strong> Denne kampagne har den bedste samlede performance. Analyser creative, tekst og targeting for at replikere succesen.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                  <Info className="w-5 h-5" />
+                  Nøgleindsigter fra sammenligningen
+                </h4>
+                <div className="space-y-2 text-sm text-blue-800">
+                  {(() => {
+                    const insights = [];
+
+                    const bestCTR = Math.max(...campaignBreakdown.map(c => parseFloat(c.ctr)));
+                    const topCTRCampaign = campaignBreakdown.find(c => parseFloat(c.ctr) === bestCTR);
+                    if (topCTRCampaign && parseFloat(topCTRCampaign.ctr) >= 0.5) {
+                      insights.push(`📊 "${topCTRCampaign.name}" har den højeste CTR (${topCTRCampaign.ctr}%). Denne kreativ/tekst er mest fængende for målgruppen.`);
+                    }
+
+                    const bestEngagement = Math.max(...campaignBreakdown.map(c => parseFloat(c.engagementRate)));
+                    const topEngagementCampaign = campaignBreakdown.find(c => parseFloat(c.engagementRate) === bestEngagement);
+                    if (topEngagementCampaign && parseFloat(topEngagementCampaign.engagementRate) >= 1) {
+                      insights.push(`💬 "${topEngagementCampaign.name}" skaber mest engagement (${topEngagementCampaign.engagementRate}% med ${topEngagementCampaign.totalEngagements} interaktioner). Budskabet resonerer stærkt.`);
+                    }
+
+                    const bestLandingPageClicks = Math.max(...campaignBreakdown.map(c => c.clicksToLandingPage));
+                    const topLandingPageCampaign = campaignBreakdown.find(c => c.clicksToLandingPage === bestLandingPageClicks);
+                    if (topLandingPageCampaign && topLandingPageCampaign.clicksToLandingPage > 0) {
+                      insights.push(`🔗 "${topLandingPageCampaign.name}" driver mest trafik til landing page (${topLandingPageCampaign.clicksToLandingPage} clicks, ${topLandingPageCampaign.landingPageClickRate}% af total). Stærkt call-to-action.`);
+                    }
+
+                    const bestConvRate = Math.max(...campaignBreakdown.map(c => parseFloat(c.conversionRate)));
+                    const topConvCampaign = campaignBreakdown.find(c => parseFloat(c.conversionRate) === bestConvRate);
+                    if (topConvCampaign && topConvCampaign.conversions > 0 && parseFloat(topConvCampaign.conversionRate) >= 2) {
+                      insights.push(`✅ "${topConvCampaign.name}" konverterer bedst (${topConvCampaign.conversionRate}% med ${topConvCampaign.conversions} leads). Stærk message-match mellem annonce og landing page.`);
+                    }
+
+                    const validCPCs = campaignBreakdown.filter(c => c.clicks > 0);
+                    if (validCPCs.length > 0) {
+                      const lowestCPC = Math.min(...validCPCs.map(c => parseFloat(c.cpc)));
+                      const mostEfficient = validCPCs.find(c => parseFloat(c.cpc) === lowestCPC);
+                      if (mostEfficient && parseFloat(mostEfficient.cpc) <= 50) {
+                        insights.push(`💰 "${mostEfficient.name}" har laveste CPC (${mostEfficient.cpc} kr). Mest omkostningseffektiv til at generere clicks.`);
+                      }
+                    }
+
+                    const weakCampaigns = campaignBreakdown.filter(c => c.overallScore < 45);
+                    if (weakCampaigns.length > 0) {
+                      const weakNames = weakCampaigns.map(c => `"${c.name}"`).join(', ');
+                      insights.push(`⚠️ ${weakCampaigns.length} kampagne(r) underperformer markant (${weakNames}). Overvej at pause disse og omlægge budget til top performers.`);
+                    }
+
+                    if (campaignBreakdown.length > 1) {
+                      const topPerformer = campaignBreakdown[0];
+                      const worstPerformer = campaignBreakdown[campaignBreakdown.length - 1];
+                      const scoreDiff = topPerformer.overallScore - worstPerformer.overallScore;
+                      
+                      if (scoreDiff > 20) {
+                        insights.push(`🎯 Stor performance-forskel mellem kampagner (${scoreDiff} point). Analyser hvad "${topPerformer.name}" gør anderledes: kreativ, tekst, targeting, eller tilbud.`);
+                      }
+                    }
+
+                    return insights.length > 0 ? insights.map((insight, i) => (
+                      <p key={i} className="flex items-start gap-2">
+                        <span>{insight}</span>
+                      </p>
+                    )) : (
+                      <p>Sammenlign kampagnernes creatives, tekster og targeting for at identificere succesfaktorer.</p>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white rounded-lg shadow-sm p-8">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Handlingsrettede Anbefalinger</h3>
+            <div className="space-y-3">
+              {analysis.recommendations.map((rec, index) => (
+                <div key={index} className="flex items-start gap-3 p-3 hover:bg-gray-50 rounded-lg transition">
+                  <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-semibold flex-shrink-0 mt-0.5">
+                    {index + 1}
+                  </div>
+                  <p className="text-gray-700">{rec}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="mt-8 bg-white rounded-lg shadow-sm p-6">
+        <h3 className="text-lg font-bold text-gray-900 mb-4">Evalueringskriterier (B2B LinkedIn)</h3>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
+          <div>
+            <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+              CTR (Click-Through Rate)
+            </h4>
+            <ul className="space-y-1.5 text-gray-600 ml-4">
+              <li className="flex items-center gap-2">
+                <span className="text-green-600">●</span> Fremragende: ≥0.8%
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-blue-600">●</span> God: ≥0.5%
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-yellow-600">●</span> Gennemsnitlig: ≥0.3%
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-red-600">●</span> Svag: &lt;0.3%
+              </li>
+            </ul>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+              CPC (Cost Per Click)
+            </h4>
+            <ul className="space-y-1.5 text-gray-600 ml-4">
+              <li className="flex items-center gap-2">
+                <span className="text-green-600">●</span> Fremragende: ≤30 kr
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-blue-600">●</span> God: ≤50 kr
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-yellow-600">●</span> Gennemsnitlig: ≤80 kr
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-red-600">●</span> Svag: &gt;80 kr
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+              Conversion Rate
+            </h4>
+            <ul className="space-y-1.5 text-gray-600 ml-4">
+              <li className="flex items-center gap-2">
+                <span className="text-green-600">●</span> Fremragende: ≥3%
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-blue-600">●</span> God: ≥2%
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-yellow-600">●</span> Gennemsnitlig: ≥1%
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-red-600">●</span> Svag: &lt;1%
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+              CPL (Cost Per Lead)
+            </h4>
+            <ul className="space-y-1.5 text-gray-600 ml-4">
+              <li className="flex items-center gap-2">
+                <span className="text-green-600">●</span> Fremragende: ≤300 kr
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-blue-600">●</span> God: ≤500 kr
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-yellow-600">●</span> Gennemsnitlig: ≤800 kr
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-red-600">●</span> Svag: &gt;800 kr
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+              Engagement Rate
+            </h4>
+            <ul className="space-y-1.5 text-gray-600 ml-4">
+              <li className="flex items-center gap-2">
+                <span className="text-green-600">●</span> Fremragende: ≥4%
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-blue-600">●</span> God: ≥2%
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-yellow-600">●</span> Gennemsnitlig: ≥1%
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-red-600">●</span> Svag: &lt;1%
+              </li>
+            </ul>
           </div>
         </div>
-
-        {/* Guidelines Footer */}
-        <div className="bg-gray-50 p-6 border-t">
-          <h3 className="font-semibold mb-3">Automatisk Kvalitetskontrol og Hounisen Brand Integration</h3>
-          <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-700">
-            <div>
-              <strong>Sprogkvalitet:</strong> Korte sætninger, aktiv stemme, konkrete fordele, ingen corporate speak
-            </div>
-            <div>
-              <strong>Variation:</strong> 5 forskellige vinkler - Pain, Outcome, Proof, Objection, Urgency
-            </div>
-            <div>
-              <strong>Brand:</strong> Automatisk integration af 50+ års erfaring, dansk kvalitet, certificering
-            </div>
-          </div>
+        
+        <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <p className="text-xs text-amber-900">
+            <strong>Note:</strong> Disse benchmarks er baseret på typiske B2B LinkedIn kampagner i Danmark. Juster kriterierne efter din specifikke branche, målgruppe og kampagnemål for mere præcise vurderinger.
+          </p>
         </div>
       </div>
     </div>
   );
-}
+};
 
-export default App;
+export default LinkedInCampaignAnalyzer;
